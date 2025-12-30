@@ -1,0 +1,10 @@
+{
+  "domain": "timetree",
+  "name": "TimeTree Calendar",
+  "codeowners": ["acdcnow"],
+  "config_flow": true,
+  "documentation": "https://github.com/acdcnow/HA_timetree_import",
+  "iot_class": "cloud_polling",
+  "requirements": ["requests", "icalendar"],
+  "version": "1.0.1"
+}
