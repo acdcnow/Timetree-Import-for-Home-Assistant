@@ -1,1 +1,40 @@
-
+{
+    "config": {
+        "abort": {
+            "already_configured": "Gerät ist bereits konfiguriert"
+        },
+        "error": {
+            "cannot_connect": "Verbindung fehlgeschlagen",
+            "invalid_auth": "Ungültige Anmeldedaten",
+            "unknown": "Unerwarteter Fehler"
+        },
+        "step": {
+            "user": {
+                "title": "Mit TimeTree verbinden",
+                "description": "Bitte geben Sie Ihre TimeTree-Zugangsdaten ein.",
+                "data": {
+                    "email": "E-Mail-Adresse",
+                    "password": "Passwort"
+                }
+            },
+            "calendar": {
+                "title": "Kalender auswählen",
+                "description": "Wählen Sie den zu synchronisierenden Kalender und die Aktualisierungshäufigkeit.",
+                "data": {
+                    "calendar_id": "Kalender",
+                    "scan_interval": "Aktualisierungsintervall (Minuten)"
+                }
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "TimeTree Einstellungen",
+                "data": {
+                    "scan_interval": "Aktualisierungsintervall (Minuten)"
+                }
+            }
+        }
+    }
+}
