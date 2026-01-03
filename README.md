@@ -1,5 +1,9 @@
 # TimeTree Calendar for Home Assistant
 
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
+[![Maintainer](https://img.shields.io/badge/maintainer-acdcnow-blue)](https://github.com/acdcnow)
+[![Version](https://img.shields.io/badge/version-1.1.3-green)]()
+
 This is a custom component for **Home Assistant** that integrates with **TimeTree**. It creates a **Calendar entity** in Home Assistant that syncs with your chosen TimeTree calendar, allowing you to view **and create** events directly from your dashboard.
 
 The integration fetches events based on a configurable polling interval (default: 60 minutes) and provides a "Last Updated" sensor to monitor sync status.
