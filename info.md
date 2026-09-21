@@ -37,3 +37,15 @@ Requires Home Assistant **2026.9** or newer.
 
 The full documentation — options, services, conflict handling, the technical API
 reference and troubleshooting — is in the [README](README.md).
+
+## Documentation for developers
+
+The wiki holds the design documents of this line of the integration:
+
+* 📐 [Architecture Design Document](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki/Architecture-Design-Document) — requirements, context, components, decisions, risks
+* 🧩 [Software Design Document](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki/Software-Design-Document) — modules, contracts, data model, error matrix, test harness
+* 🗺️ [Workflow Diagrams](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki/Workflow-Diagrams) — GitDiagram map plus setup, polling, write, export and conflict flows
+* 🏠 [Documentation home](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki)
+
+The design of the previous 1.1.3 line is kept as
+[archived documentation](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki/Archive-1.1.3-Design-Documentation).

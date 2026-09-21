@@ -4,7 +4,7 @@
   "codeowners": ["@acdcnow"],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/acdcnow/Timetree-Import-for-Home-Assistant",
+  "documentation": "https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki",
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/issues",

@@ -4,6 +4,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+* Wiki restructure: a [documentation home](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki)
+  that routes between the current 2.0.x line and the archived 1.1.3 line, an
+  [Architecture Design Document](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki/Architecture-Design-Document)
+  (14 decisions, requirements, deltas, risks), a
+  [Software Design Document](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki/Software-Design-Document)
+  (modules, contracts, data model, error matrix, traceability) and
+  [Workflow Diagrams](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki/Workflow-Diagrams)
+  (GitDiagram repository map plus the authored 2.0.x flows).
+* The former *Developer & Technical Reference Guide* is preserved as
+  [archived design documentation](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki/Archive-1.1.3-Design-Documentation)
+  with a list of the defects fixed in 2.0.x.
+
+### Changed
+
+* README and `info.md` link the design documents; the manifest `documentation` key now
+  points at the wiki.
+
 ## [2.0.0-beta.1] – 2026-09-19
 
 Complete rework of the integration: multi calendar support, real write support,

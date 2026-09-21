@@ -11,6 +11,17 @@ events from Home Assistant — and optionally mirror everything into a second
 calendar such as **Google Calendar**, with conflict handling that asks you
 before something is lost.
 
+## 📚 Documentation
+
+| Document | Contents |
+| :--- | :--- |
+| 🏠 **[Documentation home](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki)** | which document for which situation, capability matrix of 1.1.3 vs. 2.0.x |
+| 📐 **[Architecture Design Document](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki/Architecture-Design-Document)** | requirements, system context, components, 14 architectural decisions, risks |
+| 🧩 **[Software Design Document](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki/Software-Design-Document)** | module inventory, interface contracts, data model, error matrix, test harness, traceability |
+| 🗺️ **[Workflow Diagrams](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki/Workflow-Diagrams)** | GitDiagram repository map plus setup, polling, write, export and conflict flows |
+| 🗄️ **[Design Documentation 1.1.3 (archived)](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki/Archive-1.1.3-Design-Documentation)** | the previous architecture, plus the defect list that shaped 2.0.x |
+| 📝 **[CHANGELOG](CHANGELOG.md)** | what changed in every release |
+
 ---
 
 ## ✨ Features
@@ -229,6 +240,13 @@ pending conflicts — with credentials, e-mail and the password redacted.
 ---
 
 ## 🧩 Technical reference
+
+The full design is documented in the wiki: the
+[Architecture Design Document](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki/Architecture-Design-Document)
+(decisions and constraints), the
+[Software Design Document](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki/Software-Design-Document)
+(modules, contracts, data model, verification) and the
+[Workflow Diagrams](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki/Workflow-Diagrams).
 
 | Purpose | Endpoint |
 | --- | --- |
