@@ -2,7 +2,7 @@
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 [![Maintainer](https://img.shields.io/badge/maintainer-%40acdcnow-blue.svg)](https://github.com/acdcnow)
-[![Version](https://img.shields.io/badge/version-2.0.0--beta.1-orange.svg)](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/releases)
+[![Version](https://img.shields.io/badge/version-2.0.0--beta.2-orange.svg)](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/releases)
 
 A custom component for Home Assistant that imports TimeTree calendars through the
 official TimeTree web API. Every calendar of your account becomes a real Home

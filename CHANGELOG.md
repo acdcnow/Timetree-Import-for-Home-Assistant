@@ -4,7 +4,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [2.0.0-beta.2] – 2026-09-21
+
+Documentation release. The integration code is unchanged from `2.0.0-beta.1`; this
+release ships the restructured wiki and the updated project documentation so that the
+released archive contains the same documents as the branch.
 
 ### Added
 
@@ -15,7 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   [Software Design Document](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki/Software-Design-Document)
   (modules, contracts, data model, error matrix, traceability) and
   [Workflow Diagrams](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki/Workflow-Diagrams)
-  (GitDiagram repository map plus the authored 2.0.x flows).
+  (GitDiagram repository map plus the authored 2.0.x flows; the page also records the
+  verified limitation that GitDiagram can only index the repository default branch).
 * The former *Developer & Technical Reference Guide* is preserved as
   [archived design documentation](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki/Archive-1.1.3-Design-Documentation)
   with a list of the defects fixed in 2.0.x.
