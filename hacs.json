@@ -1,7 +1,8 @@
 {
   "name": "TimeTree Calendar",
   "render_readme": true,
-  "homeassistant": "2025.12.5",
+  "homeassistant": "2026.9.0",
   "content_in_root": false,
-  "zip_release": false
+  "zip_release": false,
+  "hide_default_branch": false
 }

@@ -1,0 +1,97 @@
+export_now:
+  name: Export now
+  description: Run the calendar export/synchronisation immediately.
+  fields:
+    config_entry_id:
+      name: Config entry
+      description: Only export this config entry (defaults to all TimeTree entries).
+      selector:
+        text:
+    dry_run:
+      name: Dry run
+      description: Only report what would change without touching the calendars.
+      selector:
+        boolean:
+
+refresh_now:
+  name: Refresh now
+  description: Poll TimeTree immediately instead of waiting for the next scan.
+  fields:
+    config_entry_id:
+      name: Config entry
+      selector:
+        text:
+
+list_conflicts:
+  name: List conflicts
+  description: Return every change that waits for a manual decision.
+  fields:
+    config_entry_id:
+      name: Config entry
+      selector:
+        text:
+
+resolve_conflict:
+  name: Resolve conflict
+  description: Decide what should happen with one conflicting event.
+  fields:
+    conflict_id:
+      name: Conflict id
+      description: The id reported by the sync conflict sensor.
+      required: true
+      selector:
+        text:
+    action:
+      name: Action
+      description: use_timetree, use_export_target, use_newest, skip or ignore_forever.
+      required: true
+      selector:
+        select:
+          options:
+            - use_timetree
+            - use_export_target
+            - use_newest
+            - skip
+            - ignore_forever
+    config_entry_id:
+      name: Config entry
+      selector:
+        text:
+
+resolve_all_conflicts:
+  name: Resolve all conflicts
+  description: Apply the same decision to every pending conflict.
+  fields:
+    action:
+      name: Action
+      required: true
+      selector:
+        select:
+          options:
+            - use_timetree
+            - use_export_target
+            - use_newest
+            - skip
+            - ignore_forever
+    config_entry_id:
+      name: Config entry
+      selector:
+        text:
+
+get_event:
+  name: Get event
+  description: Return the raw TimeTree details of one event.
+  fields:
+    uuid:
+      name: Event uuid
+      required: true
+      selector:
+        text:
+    calendar_id:
+      name: Calendar id
+      selector:
+        text:
+    config_entry_id:
+      name: Config entry
+      selector:
+        text:

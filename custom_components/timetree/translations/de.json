@@ -1,40 +1,191 @@
 {
-    "config": {
-        "abort": {
-            "already_configured": "Gerät ist bereits konfiguriert"
-        },
-        "error": {
-            "cannot_connect": "Verbindung fehlgeschlagen",
-            "invalid_auth": "Ungültige Anmeldedaten",
-            "unknown": "Unerwarteter Fehler"
-        },
-        "step": {
-            "user": {
-                "title": "Mit TimeTree verbinden",
-                "description": "Bitte geben Sie Ihre TimeTree-Zugangsdaten ein.",
-                "data": {
-                    "email": "E-Mail-Adresse",
-                    "password": "Passwort"
-                }
-            },
-            "calendar": {
-                "title": "Kalender auswählen",
-                "description": "Wählen Sie den zu synchronisierenden Kalender und die Aktualisierungshäufigkeit.",
-                "data": {
-                    "calendar_id": "Kalender",
-                    "scan_interval": "Aktualisierungsintervall (Minuten)"
-                }
-            }
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "Mit TimeTree verbinden",
+        "description": "Melde dich mit deinem TimeTree Konto an. Die Zugangsdaten werden nur für die offizielle TimeTree API verwendet.",
+        "data": {
+          "email": "E-Mail-Adresse",
+          "password": "Passwort"
         }
+      },
+      "calendars": {
+        "title": "Kalender auswählen",
+        "description": "Wähle alle TimeTree Kalender aus, die in Home Assistant erscheinen sollen. Jeder Kalender wird zu einer eigenen Kalender-Entität und einem Gerät.",
+        "data": {
+          "calendars": "Kalender"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Neu anmelden",
+        "description": "TimeTree akzeptiert das gespeicherte Passwort von {email} nicht mehr.",
+        "data": {
+          "password": "Passwort"
+        }
+      }
     },
-    "options": {
-        "step": {
-            "init": {
-                "title": "TimeTree Einstellungen",
-                "data": {
-                    "scan_interval": "Aktualisierungsintervall (Minuten)"
-                }
-            }
-        }
+    "error": {
+      "invalid_auth": "TimeTree hat diese Zugangsdaten abgelehnt",
+      "cannot_connect": "Die TimeTree API ist nicht erreichbar",
+      "unknown": "Unerwarteter Fehler, bitte das Home Assistant Log prüfen",
+      "no_calendars": "Mindestens einen Kalender auswählen"
+    },
+    "abort": {
+      "already_configured": "Dieses TimeTree Konto ist bereits eingerichtet",
+      "reauth_successful": "Die Neuanmeldung war erfolgreich"
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "TimeTree Optionen",
+        "menu_options": {
+          "calendars": "Kalender",
+          "sync": "Abfrage und Termine",
+          "export": "In einen anderen Kalender exportieren",
+          "conflicts": "Konfliktbehandlung"
+        }
+      },
+      "calendars": {
+        "title": "Kalender",
+        "description": "TimeTree Kalender hinzufügen oder entfernen. Entitäten entfernter Kalender werden gelöscht.",
+        "data": {
+          "calendars": "Kalender"
+        }
+      },
+      "sync": {
+        "title": "Abfrage und Termine",
+        "description": "Wie oft TimeTree abgefragt wird und welche Details pro Termin angezeigt werden.",
+        "data": {
+          "scan_interval": "Abfrageintervall",
+          "include_birthdays": "Geburtstage einschließen",
+          "include_comments": "Kommentare einschließen (langsamer)",
+          "description_details": "Labels und Teilnehmer in die Beschreibung schreiben"
+        }
+      },
+      "export": {
+        "title": "In einen anderen Kalender exportieren",
+        "description": "TimeTree bleibt die führende Quelle. Exportierte Kopien erhalten eine unsichtbare Markierung, damit sie später zugeordnet werden können. Als Ziel eignet sich z. B. eine Google Kalender Entität.",
+        "data": {
+          "export_enabled": "Export-Schleife aktivieren",
+          "export_target": "Ziel-Kalender-Entität",
+          "export_interval": "Exportintervall",
+          "export_direction": "Richtung",
+          "export_past_days": "Termine aus der Vergangenheit einbeziehen",
+          "export_future_days": "Termine in der Zukunft einbeziehen",
+          "export_delete_removed": "Exportierte Kopien gelöschter TimeTree Termine löschen",
+          "export_recreate_removed": "Gelöschte exportierte Kopien neu anlegen",
+          "export_dry_run": "Testlauf (nur Bericht)",
+          "import_unmanaged": "Termine importieren, die nur im Ziel existieren"
+        }
+      },
+      "conflicts": {
+        "title": "Konfliktbehandlung",
+        "description": "Ein Konflikt entsteht, wenn sich der TimeTree Termin und seine exportierte Kopie seit dem letzten Lauf beide geändert haben.",
+        "data": {
+          "conflict_policy": "Konfliktstrategie",
+          "notify_conflicts": "Benachrichtigung bei neuen Konflikten erzeugen"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Die TimeTree API ist nicht erreichbar, die gespeicherten Kalender werden angezeigt",
+      "no_calendars": "Mindestens einen Kalender auswählen"
+    }
+  },
+  "selector": {
+    "export_direction": {
+      "options": {
+        "export_only": "TimeTree zum Zielkalender",
+        "two_way": "Beidseitig (Änderungen im Ziel werden zurückgeschrieben)"
+      }
+    },
+    "conflict_policy": {
+      "options": {
+        "manual": "Nachfragen (Konflikt vormerken)",
+        "source_wins": "TimeTree gewinnt",
+        "target_wins": "Zielkalender gewinnt",
+        "newest_wins": "Neueste Änderung gewinnt"
+      }
+    }
+  },
+  "services": {
+    "export_now": {
+      "name": "Jetzt exportieren",
+      "description": "Den Kalender-Export/Synchronisation sofort ausführen.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Konfigurationseintrag",
+          "description": "Nur diesen Eintrag exportieren."
+        },
+        "dry_run": {
+          "name": "Testlauf",
+          "description": "Nur berichten, was geändert würde."
+        }
+      }
+    },
+    "refresh_now": {
+      "name": "Jetzt aktualisieren",
+      "description": "TimeTree sofort abfragen statt auf den nächsten Scan zu warten.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Konfigurationseintrag"
+        }
+      }
+    },
+    "list_conflicts": {
+      "name": "Konflikte auflisten",
+      "description": "Alle Änderungen zurückgeben, die auf eine manuelle Entscheidung warten.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Konfigurationseintrag"
+        }
+      }
+    },
+    "resolve_conflict": {
+      "name": "Konflikt lösen",
+      "description": "Entscheiden, was mit einem konkreten Termin passieren soll.",
+      "fields": {
+        "conflict_id": {
+          "name": "Konflikt-ID",
+          "description": "Die ID aus dem Sensor für Sync-Konflikte."
+        },
+        "action": {
+          "name": "Aktion",
+          "description": "Welche Seite gewinnt oder ob der Konflikt übersprungen wird."
+        },
+        "config_entry_id": {
+          "name": "Konfigurationseintrag"
+        }
+      }
+    },
+    "resolve_all_conflicts": {
+      "name": "Alle Konflikte lösen",
+      "description": "Dieselbe Entscheidung auf alle offenen Konflikte anwenden.",
+      "fields": {
+        "action": {
+          "name": "Aktion"
+        },
+        "config_entry_id": {
+          "name": "Konfigurationseintrag"
+        }
+      }
+    },
+    "get_event": {
+      "name": "Termin abrufen",
+      "description": "Die Rohdaten eines TimeTree Termins zurückgeben.",
+      "fields": {
+        "uuid": {
+          "name": "Termin-UUID"
+        },
+        "calendar_id": {
+          "name": "Kalender-ID"
+        },
+        "config_entry_id": {
+          "name": "Konfigurationseintrag"
+        }
+      }
+    }
+  }
 }
