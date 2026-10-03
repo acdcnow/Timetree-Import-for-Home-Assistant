@@ -49,3 +49,7 @@ The wiki holds the design documents of this line of the integration:
 
 The design of the previous 1.1.3 line is kept as
 [archived documentation](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/wiki/Archive-1.1.3-Design-Documentation).
+
+## License
+
+GNU General Public License v3.0 (`GPL-3.0-only`) — see [LICENSE](LICENSE).

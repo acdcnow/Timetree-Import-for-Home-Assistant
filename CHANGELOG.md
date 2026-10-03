@@ -4,6 +4,39 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.0.0] – 2026-10-03
+
+First stable release of the 2.0.x line. It promotes the two pre-releases
+(`2.0.0-beta.1`, `2.0.0-beta.2`) to a normal release and comes with the license
+change and the final documentation pass. **There are no functional changes to the
+integration compared to `2.0.0-beta.2`.**
+
+### Added
+
+* A second version badge and a license badge in the README.
+
+### Changed
+
+* **License: the project is now released under the GNU General Public License
+  v3.0** (`GPL-3.0-only`) instead of MIT. The full text is in `LICENSE`; the
+  README, `info.md` and this changelog were updated accordingly.
+* Version bumped to `2.0.0` in `manifest.json` and in the README version badge
+  (previously `2.0.0-beta.2`).
+* `hacs.json` keeps `homeassistant: 2026.9.0`, so the minimum required Home
+  Assistant version is unchanged.
+
+### Included from the pre-releases
+
+* Multi calendar support, complete event import, create/update/delete write
+  support, the export/sync loop to other calendar entities and the full conflict
+  management workflow (`2.0.0-beta.1`).
+* The restructured wiki — documentation home, Architecture Design Document,
+  Software Design Document, Workflow Diagrams — plus the archived 1.1.3 design
+  documentation (`2.0.0-beta.2`).
+
+See the `2.0.0-beta.1` and `2.0.0-beta.2` sections below for the detailed,
+per-change lists.
+
 ## [2.0.0-beta.2] – 2026-09-21
 
 Documentation release. The integration code is unchanged from `2.0.0-beta.1`; this

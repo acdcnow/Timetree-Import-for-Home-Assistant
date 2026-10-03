@@ -2,7 +2,8 @@
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 [![Maintainer](https://img.shields.io/badge/maintainer-%40acdcnow-blue.svg)](https://github.com/acdcnow)
-[![Version](https://img.shields.io/badge/version-2.0.0--beta.2-orange.svg)](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/releases)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/releases/tag/2.0.0)
+[![License](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
 
 A custom component for Home Assistant that imports TimeTree calendars through the
 official TimeTree web API. Every calendar of your account becomes a real Home
@@ -303,4 +304,5 @@ event analysis in `#7`.
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+GNU General Public License v3.0 — see [LICENSE](LICENSE). This program comes
+with absolutely no warranty.
