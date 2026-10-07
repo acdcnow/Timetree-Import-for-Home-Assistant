@@ -359,6 +359,12 @@ def decide(
             if two_way:
                 return Decision(Action.CREATE_SOURCE, kind=ConflictKind.TARGET_ONLY)
             return Decision(Action.NONE, reason="event is not managed by TimeTree")
+        if delete_removed:
+            return Decision(
+                Action.DELETE_TARGET,
+                kind=ConflictKind.SOURCE_REMOVED,
+                reason="the TimeTree event was deleted, removing the exported copy",
+            )
         return Decision(
             Action.CONFLICT,
             kind=ConflictKind.SOURCE_REMOVED,
@@ -374,6 +380,12 @@ def decide(
                     Action.CREATE_TARGET,
                     kind=ConflictKind.TARGET_REMOVED,
                     reason="the exported copy was removed, recreating it",
+                )
+            if two_way and policy in ("target_wins", "newest_wins") and (source is None or not source.rrule):
+                return Decision(
+                    Action.DELETE_SOURCE,
+                    kind=ConflictKind.TARGET_REMOVED,
+                    reason="the exported copy was deleted in Google Calendar, removing the TimeTree event",
                 )
             return Decision(
                 Action.CONFLICT,
