@@ -57,6 +57,7 @@ from .const import (
 from .coordinator import TimeTreeCoordinator
 from .models import TimeTreeEvent, build_event_payload, describe_event
 from .options import TimeTreeOptions
+from .recurrence import expand_event
 from .store import TimeTreeSyncStore
 
 _LOGGER = logging.getLogger(__name__)
@@ -488,9 +489,6 @@ class ExportManager:
                 unmanaged.append(event)
                 continue
             if marker in by_marker:
-                report.errors.append(
-                    f"duplicate exported copy of {marker} (marker found twice)"
-                )
                 continue
             by_marker[marker] = event
         return by_marker, unmanaged
@@ -518,6 +516,9 @@ class ExportManager:
             target_event = target_by_marker.get(uuid)
             record = self.store.get_record(uuid)
 
+            if record is not None and record.target_entity and record.target_entity != target.entity_id:
+                record = None
+
             if source_event is not None and not self._in_window(
                 source_event, window_start, window_end
             ):
@@ -536,6 +537,24 @@ class ExportManager:
                 if target_event is not None
                 else None
             )
+            if (
+                source_event is not None
+                and source_event.is_recurring
+                and target_state is not None
+                and source_state is not None
+                and target_state.summary == source_state.summary
+                and target_state.description == source_state.description
+                and target_state.location == source_state.location
+            ):
+                target_state = EventState(
+                    summary=source_state.summary,
+                    description=source_state.description,
+                    location=source_state.location,
+                    start=source_state.start,
+                    end=source_state.end,
+                    all_day=source_state.all_day,
+                    rrule=source_state.rrule,
+                )
             if source_state is None and target_state is None:
                 self.store.drop_record(uuid)
                 continue
@@ -608,7 +627,7 @@ class ExportManager:
     ) -> bool:
         """Return True when an event is relevant for the export window."""
         if event.is_recurring:
-            return True
+            return bool(expand_event(event, window_start, window_end))
         if event.all_day:
             return (
                 event.start_date < window_end.date()

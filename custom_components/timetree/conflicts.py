@@ -242,7 +242,7 @@ class SyncRecord:
     @property
     def exported(self) -> bool:
         """Return True when a copy was exported to the target."""
-        return self.target_uid is not None
+        return self.target_uid is not None or self.target_fingerprint is not None
 
 
 @dataclass(slots=True)
