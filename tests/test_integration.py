@@ -516,6 +516,32 @@ def test_decide_table():
     )
     check(decision.action is conflicts.Action.UPDATE_TARGET)
 
+    both_source.updated = 2000
+    both_target.updated = 1000
+    decision = conflicts.decide(
+        source=both_source,
+        target=both_target,
+        record=record,
+        policy="newest_wins",
+        two_way=False,
+        delete_removed=False,
+        recreate_removed=False,
+    )
+    check(decision.action is conflicts.Action.UPDATE_TARGET)
+
+    both_source.updated = 1000
+    both_target.updated = 2000
+    decision = conflicts.decide(
+        source=both_source,
+        target=both_target,
+        record=record,
+        policy="newest_wins",
+        two_way=False,
+        delete_removed=False,
+        recreate_removed=False,
+    )
+    check(decision.action is conflicts.Action.UPDATE_SOURCE)
+
     decision = conflicts.decide(
         source=None,
         target=target,

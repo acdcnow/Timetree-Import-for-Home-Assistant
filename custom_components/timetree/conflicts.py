@@ -448,6 +448,20 @@ def decide(
             kind=ConflictKind.BOTH_CHANGED,
             reason="both sides changed, the exported copy wins",
         )
+    if policy == "newest_wins":
+        source_updated = (source.updated or 0) if source else 0
+        target_updated = (target.updated or 0) if target else 0
+        if source_updated >= target_updated:
+            return Decision(
+                Action.UPDATE_TARGET,
+                kind=ConflictKind.BOTH_CHANGED,
+                reason="both sides changed, TimeTree is newer",
+            )
+        return Decision(
+            Action.UPDATE_SOURCE,
+            kind=ConflictKind.BOTH_CHANGED,
+            reason="both sides changed, the exported copy is newer",
+        )
     return Decision(
         Action.CONFLICT,
         kind=ConflictKind.BOTH_CHANGED,
