@@ -101,6 +101,7 @@ async def _async_refresh_now(call: ServiceCall) -> ServiceResponse:
                 calendar_id: len(data.events)
                 for calendar_id, data in (coordinator.data.calendars.items() if coordinator.data else [])
             },
+            "members": coordinator._user_names,
         }
     return {"entries": results}
 
