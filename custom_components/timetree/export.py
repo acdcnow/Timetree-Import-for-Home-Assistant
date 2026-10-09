@@ -297,7 +297,7 @@ class CalendarTarget:
         await self.async_create(write)
         try:
             await self.async_delete(uid)
-        except (ExportError, HomeAssistantError, NotImplementedError) as err:
+        except (ExportError, HomeAssistantError, NotImplementedError, ValueError) as err:
             _LOGGER.warning(
                 "%s: could not remove the superseded copy %s: %s",
                 self.entity_id,
@@ -326,7 +326,7 @@ class CalendarTarget:
                 kwargs.pop("rrule")
                 return await func(*args, **kwargs)
             raise ExportError(f"{self.entity_id}: {err}") from err
-        except HomeAssistantError as err:
+        except (HomeAssistantError, ValueError) as err:
             raise ExportError(f"{self.entity_id}: {err}") from err
 
 
@@ -900,19 +900,29 @@ class ExportManager:
         result = await self.coordinator.async_create_event(calendar_ids[0], payload)
         created_uuid = extract_created_uuid(result) or new_uuid
         report.imported += 1
+
+        source_state: EventState | None = None
+        if self.coordinator.data is not None:
+            for _, ev in self.coordinator.data.all_events():
+                if ev.uuid == created_uuid:
+                    source_state = self._source_state(ev)
+                    break
+
+        source_fp = source_state.fingerprint() if source_state else state.fingerprint()
+        retag_state = source_state if source_state is not None else state
         self.store.set_record(
             SyncRecord(
                 uuid=created_uuid,
                 calendar_id=calendar_ids[0],
-                source_fingerprint=None,
-                target_fingerprint=state.fingerprint(),
+                source_fingerprint=source_fp,
+                target_fingerprint=retag_state.fingerprint(),
                 target_uid=event.uid,
                 target_entity=target.entity_id,
                 last_sync=dt_util.utcnow().isoformat(timespec="seconds"),
             )
         )
         if event.uid:
-            await self._async_retag(target, event.uid, state, created_uuid)
+            await self._async_retag(target, event.uid, retag_state, created_uuid)
 
     async def _async_retag(
         self,
@@ -1078,6 +1088,8 @@ class ExportManager:
 
         decision = Decision(action=action, kind=conflict.kind, reason="manual resolution")
         record = self.store.get_record(conflict.uuid)
+        if record is not None and conflict.target_uid:
+            record.target_uid = conflict.target_uid
         report = ExportReport(reason="resolve", target=target.entity_id, dry_run=dry_run)
         await self._async_apply(
             decision=decision,
