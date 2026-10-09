@@ -2,8 +2,10 @@
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 [![Maintainer](https://img.shields.io/badge/maintainer-%40acdcnow-blue.svg)](https://github.com/acdcnow)
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/releases/tag/2.0.0)
+[![Version](https://img.shields.io/badge/version-2.0.2-blue.svg)](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/releases/tag/2.0.2)
 [![License](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
+
+<img src="ha_timetree.jpg" alt="TimeTree Calendar &amp; Scheduling — Home Assistant integration" width="900">
 
 A custom component for Home Assistant that imports TimeTree calendars through the
 official TimeTree web API. Every calendar of your account becomes a real Home
@@ -66,6 +68,9 @@ before something is lost.
 * Configurable loop interval (5–1440 min), export window (past/future days),
   `export_only` or `two_way`, dry-run mode, and optional import of events that
   only exist in the target calendar.
+* **Attendee filter** — restrict the export to events that include at least one
+  of the selected members (discovered from your calendars), with a switch for
+  events that carry no attendee at all.
 * Recurring events are exported as a series (`RRULE`), so Google keeps expanding
   them natively.
 
@@ -129,7 +134,7 @@ Each calendar becomes a device with a calendar entity
 | --- | --- |
 | **Calendars** | add/remove TimeTree calendars (entities are added/removed) |
 | **Polling and events** | poll interval (5–1440 min), include birthdays, include comments, labels/attendees in the description |
-| **Export to another calendar** | enable, target entity, interval, direction, window, delete/recreate behaviour, dry run, import unmanaged events |
+| **Export to another calendar** | enable, target entity, interval, direction, window, attendee filter, delete/recreate behaviour, dry run, import unmanaged events |
 | **Conflict handling** | policy and notifications |
 
 ---

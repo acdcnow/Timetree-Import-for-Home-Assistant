@@ -4,6 +4,57 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.0.2] – 2026-10-10
+
+Brand and maintenance release on top of `2.0.1`. It brings the new brand artwork
+derived from the project banner and two export fixes.
+
+### Added
+
+* **New brand images** in `custom_components/timetree/brand/`, derived from the
+  project banner: `icon.png`/`icon@2x.png` carry the TimeTree wordmark, and
+  `logo.png`/`logo@2x.png` plus `dark_logo.png`/`dark_logo@2x.png` carry the full
+  banner. All six files keep their Home Assistant sizes (icon 256/512, logo
+  shortest side 256/512).
+* The project banner (`ha_timetree.jpg`) is shown at the top of the README.
+* **Export attendee filter** — the export can be restricted to events that include
+  at least one of the selected members. The member list is discovered dynamically
+  from the calendars, and a separate switch decides whether events without any
+  attendee are exported as well.
+
+### Fixed
+
+* `newest_wins` is now applied to `both_changed` conflicts instead of leaving them
+  queued indefinitely.
+* Unmanaged-import fingerprints no longer raise a false conflict on every poll once
+  the initial import has settled.
+
+### Changed
+
+* Version bumped to `2.0.2` in `manifest.json` and in the README version badge.
+* Repository housekeeping: the stale `ha2026_09_dev` branch was removed, so `main`
+  is again the only branch.
+
+## [2.0.1] – 2026-10-08
+
+### Added
+
+* **Automatic two-way deletion synchronisation**: deleting an exported copy now also
+  removes the TimeTree event (and the other way round) under the `newest_wins` and
+  `target_wins` policies.
+
+### Fixed
+
+* Recurring events are no longer duplicated on export; only the occurrences that
+  actually overlap the export window are written.
+* Switching the export target no longer reports every event as `target_removed` —
+  the sync record is reset when the target entity changes.
+* Occurrences of a recurring series are recognised as in-sync (summary, description
+  and location are normalised) instead of being reported as modified.
+* A sync record that already has a target fingerprint but no target uid yet (Google
+  Calendar expanding a series) counts as exported, and the resulting duplicate-copy
+  errors are no longer logged.
+
 ## [2.0.0] – 2026-10-03
 
 First stable release of the 2.0.x line. It promotes the two pre-releases
