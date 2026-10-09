@@ -526,6 +526,13 @@ class ExportManager:
                 # copy must not be mistaken for a deletion.
                 report.skipped += 1
                 continue
+            if source_event is not None and not self._matches_export_attendees(source_event):
+                if record is not None and record.exported:
+                    # Previously exported, but attendee unselected: treat as removed
+                    source_event = None
+                else:
+                    report.skipped += 1
+                    continue
             if source_event is None and record is None and target_event is not None:
                 continue
 
@@ -634,6 +641,18 @@ class ExportManager:
                 and event.end_date > window_start.date()
             )
         return event.start_datetime < window_end and event.end_datetime > window_start
+
+    def _matches_export_attendees(self, event: TimeTreeEvent) -> bool:
+        """Return True when an event matches the attendee export filter."""
+        selected = self.options.export_attendees
+        if not selected:
+            return True
+        if not event.attendee_ids and not event.attendee_names:
+            return self.options.export_include_untagged
+        selected_set = {str(item).strip().lower() for item in selected}
+        event_ids = {str(uid).strip().lower() for uid in event.attendee_ids}
+        event_names = {str(name).strip().lower() for name in event.attendee_names}
+        return bool((event_ids | event_names) & selected_set)
 
     def _source_state(self, event: TimeTreeEvent) -> EventState:
         """Return the comparable state of a TimeTree event."""

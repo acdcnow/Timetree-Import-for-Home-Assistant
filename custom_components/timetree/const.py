@@ -44,6 +44,8 @@ CONF_EXPORT_DRY_RUN: Final = "export_dry_run"
 CONF_IMPORT_UNMANAGED: Final = "import_unmanaged"
 CONF_CONFLICT_POLICY: Final = "conflict_policy"
 CONF_NOTIFY_CONFLICTS: Final = "notify_conflicts"
+CONF_EXPORT_ATTENDEES: Final = "export_attendees"
+CONF_EXPORT_INCLUDE_UNTAGGED: Final = "export_include_untagged"
 
 # --- defaults ---------------------------------------------------------------
 DEFAULT_SCAN_INTERVAL: Final = 60

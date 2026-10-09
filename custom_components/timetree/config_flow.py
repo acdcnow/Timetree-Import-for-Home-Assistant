@@ -25,11 +25,13 @@ from .const import (
     CONF_CALENDARS,
     CONF_CONFLICT_POLICY,
     CONF_DESCRIPTION_DETAILS,
+    CONF_EXPORT_ATTENDEES,
     CONF_EXPORT_DELETE_REMOVED,
     CONF_EXPORT_DIRECTION,
     CONF_EXPORT_DRY_RUN,
     CONF_EXPORT_ENABLED,
     CONF_EXPORT_FUTURE_DAYS,
+    CONF_EXPORT_INCLUDE_UNTAGGED,
     CONF_EXPORT_INTERVAL,
     CONF_EXPORT_PAST_DAYS,
     CONF_EXPORT_RECREATE_REMOVED,
@@ -299,6 +301,8 @@ class TimeTreeOptionsFlow(OptionsFlow):
             CONF_EXPORT_RECREATE_REMOVED: options.export_recreate_removed,
             CONF_EXPORT_DRY_RUN: options.export_dry_run,
             CONF_IMPORT_UNMANAGED: options.import_unmanaged,
+            CONF_EXPORT_ATTENDEES: [str(item) for item in options.export_attendees],
+            CONF_EXPORT_INCLUDE_UNTAGGED: options.export_include_untagged,
             CONF_CONFLICT_POLICY: options.conflict_policy,
             CONF_NOTIFY_CONFLICTS: options.notify_conflicts,
         }
@@ -481,6 +485,55 @@ class TimeTreeOptionsFlow(OptionsFlow):
                 CONF_IMPORT_UNMANAGED, default=current.import_unmanaged
             ): selector.BooleanSelector(),
         }
+
+        # Dynamically discover members from the coordinator
+        user_options: list[selector.SelectOptionDict] = []
+        seen_user_ids: set[str] = set()
+        runtime = getattr(self.config_entry, "runtime_data", None)
+        if runtime is not None and getattr(runtime, "coordinator", None) is not None:
+            coordinator = runtime.coordinator
+            for cal_id in coordinator.calendar_ids:
+                users_map = coordinator._user_names.get(str(cal_id), {})
+                for u_id, u_name in users_map.items():
+                    val = u_name or str(u_id)
+                    if val.lower() not in seen_user_ids:
+                        seen_user_ids.add(val.lower())
+                        user_options.append(
+                            selector.SelectOptionDict(
+                                value=val,
+                                label=u_name or f"User {u_id}",
+                            )
+                        )
+        for name in current.export_attendees:
+            if name.lower() not in seen_user_ids:
+                seen_user_ids.add(name.lower())
+                user_options.append(
+                    selector.SelectOptionDict(
+                        value=name,
+                        label=name,
+                    )
+                )
+
+        if user_options:
+            schema[
+                vol.Optional(
+                    CONF_EXPORT_ATTENDEES,
+                    default=[str(uid) for uid in current.export_attendees if str(uid).lower() in seen_user_ids],
+                )
+            ] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=user_options,
+                    multiple=True,
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            )
+            schema[
+                vol.Required(
+                    CONF_EXPORT_INCLUDE_UNTAGGED,
+                    default=current.export_include_untagged,
+                )
+            ] = selector.BooleanSelector()
+
         if current.export_target:
             schema[
                 vol.Optional(CONF_EXPORT_TARGET, default=current.export_target)

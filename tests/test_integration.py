@@ -1502,6 +1502,47 @@ def test_options_from_entry():
     check(options.scan_interval == 15)
 
 
+def test_export_attendee_filter():
+    """Export only creates copies for events matching selected attendees."""
+    target = FakeTargetEntity()
+    joshua_event = make_source_event(uuid="joshua-1", title="Joshua Appointment")
+    joshua_event.attendee_names = ["Joshua"]
+    joshua_event.attendee_ids = [101]
+
+    shell_event = make_source_event(uuid="shell-1", title="Shell Appointment")
+    shell_event.attendee_names = ["Shell"]
+    shell_event.attendee_ids = [102]
+
+    untagged_event = make_source_event(uuid="all-1", title="Family Holiday")
+    untagged_event.attendee_names = []
+    untagged_event.attendee_ids = []
+
+    # 1. Filter set to Joshua only, untagged included
+    manager, coordinator, store, hass = make_manager(
+        target,
+        [joshua_event, shell_event, untagged_event],
+        export_attendees=["Joshua"],
+        export_include_untagged=True,
+    )
+    report = ha_stub.run(manager.async_run(reason="manual"))
+    check(report.ok, str(report.errors))
+    check(report.created == 2, f"expected 2 created (Joshua + untagged), got {report.created}")
+    check(report.skipped == 1, f"expected 1 skipped (Shell), got {report.skipped}")
+
+    # 2. Filter set to Joshua only, untagged EXCLUDED
+    target2 = FakeTargetEntity()
+    manager2, coordinator2, store2, hass2 = make_manager(
+        target2,
+        [joshua_event, shell_event, untagged_event],
+        export_attendees=["Joshua"],
+        export_include_untagged=False,
+    )
+    report2 = ha_stub.run(manager2.async_run(reason="manual"))
+    check(report2.ok, str(report2.errors))
+    check(report2.created == 1, f"expected 1 created (Joshua only), got {report2.created}")
+    check(report2.skipped == 2, f"expected 2 skipped (Shell + untagged), got {report2.skipped}")
+
+
 def test_all_modules_import():
     """Every integration module can be imported."""
     for name in (
@@ -1580,6 +1621,7 @@ TESTS = [
     test_calendar_entity_rejects_occurrence_write,
     test_calendar_entity_rrule_validation,
     test_options_from_entry,
+    test_export_attendee_filter,
     test_all_modules_import,
 ]
 

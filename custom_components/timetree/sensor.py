@@ -72,6 +72,13 @@ class TimeTreeLastUpdatedSensor(TimeTreeCalendarEntityBase, SensorEntity):
         """Return True while the coordinator has data."""
         return self.coordinator.last_update_success_time is not None
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return discovered calendar members."""
+        return {
+            "members": self.coordinator._user_names.get(self.calendar_id, {}),
+        }
+
 
 class TimeTreeStoreSensor(TimeTreeEntity, SensorEntity):
     """Base class for sensors backed by the sync store."""
