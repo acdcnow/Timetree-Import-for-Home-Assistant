@@ -39,7 +39,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up TimeTree from a config entry."""
     options = TimeTreeOptions.from_entry(entry)
 
-    api = TimeTreeApi(hass, entry.data[CONF_EMAIL], entry.data[CONF_PASSWORD])
+    api = await TimeTreeApi.async_create(
+        hass, entry.data[CONF_EMAIL], entry.data[CONF_PASSWORD]
+    )
     coordinator = TimeTreeCoordinator(hass, entry, api, options)
     await coordinator.async_config_entry_first_refresh()
 

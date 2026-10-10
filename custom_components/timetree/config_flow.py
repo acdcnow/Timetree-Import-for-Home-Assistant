@@ -256,7 +256,7 @@ class TimeTreeConfigFlow(ConfigFlow, domain=DOMAIN):
         self, email: str, password: str
     ) -> list[TimeTreeCalendar]:
         """Validate the credentials and return the calendars."""
-        api = TimeTreeApi(self.hass, email, password)
+        api = await TimeTreeApi.async_create(self.hass, email, password)
         try:
             return await api.async_validate()
         finally:
@@ -401,7 +401,7 @@ class TimeTreeOptionsFlow(OptionsFlow):
             for item in self._pending.get(CONF_CALENDARS, [])
         ]
         try:
-            api = TimeTreeApi(
+            api = await TimeTreeApi.async_create(
                 self.hass,
                 self.config_entry.data[CONF_EMAIL],
                 self.config_entry.data[CONF_PASSWORD],
