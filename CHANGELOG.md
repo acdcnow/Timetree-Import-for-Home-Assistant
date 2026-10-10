@@ -4,6 +4,33 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.0.3] – 2026-10-10
+
+Maintenance release on top of `2.0.2`: the integration no longer trips Home
+Assistant's blocking call detector while setting up.
+
+### Fixed
+
+* **Blocking call in the event loop.** `curl_cffi` was imported lazily inside
+  `create_transport()`, which runs during `async_setup_entry()` and therefore inside
+  the event loop. Importing it reads package metadata through `importlib.metadata`,
+  which scans `site-packages` (`listdir`), so every start-up logged
+  `Detected blocking call to listdir ... custom_components/timetree/api.py, line 94`.
+  The transport libraries are now imported at module level - Home Assistant loads
+  integration modules in the executor - and `create_transport()` imports nothing.
+* Building the HTTP session (which loads a native TLS library) no longer happens in
+  the event loop. The client is created through the new `TimeTreeApi.async_create()`
+  factory, which constructs it in the executor; all three call sites (setup, config
+  flow, options flow) use it.
+* `api.py` imported `uuid` inside `_login()` and `export.py` imported `asyncio` inside
+  a helper; both imports moved to module level and the helper was removed.
+
+### Changed
+
+* Version bumped to `2.0.3` in `manifest.json` and in the README version badge.
+* Four regression tests covering the module level imports, the transport fallback, the
+  executor based construction and the absence of inline `TimeTreeApi(...)` call sites.
+
 ## [2.0.2] – 2026-10-10
 
 Brand and maintenance release on top of `2.0.1`. It brings the new brand artwork

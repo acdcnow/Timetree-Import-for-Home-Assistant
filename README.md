@@ -2,7 +2,7 @@
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 [![Maintainer](https://img.shields.io/badge/maintainer-%40acdcnow-blue.svg)](https://github.com/acdcnow)
-[![Version](https://img.shields.io/badge/version-2.0.2-blue.svg)](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/releases/tag/2.0.2)
+[![Version](https://img.shields.io/badge/version-2.0.3-blue.svg)](https://github.com/acdcnow/Timetree-Import-for-Home-Assistant/releases/tag/2.0.3)
 [![License](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
 
 <img src="ha_timetree.jpg" alt="TimeTree Calendar &amp; Scheduling — Home Assistant integration" width="900">

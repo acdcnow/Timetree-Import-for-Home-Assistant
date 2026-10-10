@@ -11,6 +11,8 @@ stubs in ``ha_stub.py``.
 
 from __future__ import annotations
 
+import inspect
+import re
 import sys
 import traceback
 from datetime import date, datetime, timedelta, timezone
@@ -1603,6 +1605,61 @@ def test_all_modules_import():
     check(len(const.RESOLUTIONS) == 5)
 
 
+def test_transport_module_level_imports():
+    """The HTTP transport is imported at module level, never inside the loop."""
+    source = inspect.getsource(api_mod)
+    check(
+        "PLC0415" not in source,
+        "api.py still contains a deferred (in-loop) import",
+    )
+    create_source = inspect.getsource(api_mod.create_transport)
+    check(
+        re.search(r"^\s+(?:from|import)\s+\w", create_source, re.MULTILINE) is None,
+        "create_transport() must not import anything",
+    )
+    check(hasattr(api_mod, "curl_requests"), "curl_cffi is resolved at import time")
+    check(hasattr(api_mod, "plain_requests"), "requests is resolved at import time")
+    export_header = inspect.getsource(export_mod).split("\ndef ", 1)[0]
+    check(
+        "import asyncio" in export_header,
+        "export.py must import asyncio at module level",
+    )
+    check("asyncio_sleep" not in inspect.getsource(export_mod))
+
+
+def test_create_transport_fallback_without_curl_cffi():
+    """Without curl_cffi the transport falls back to a plain requests session."""
+    original = api_mod.curl_requests
+    api_mod.curl_requests = None
+    try:
+        session, browser_transport = api_mod.create_transport(const.IMPERSONATE)
+    finally:
+        api_mod.curl_requests = original
+    check(browser_transport is False)
+    check(session is not None)
+
+
+def test_api_async_create_runs_in_executor():
+    """The client is constructed in the executor, not in the event loop."""
+    hass = ha_stub.HomeAssistant()
+    api = ha_stub.run(api_mod.TimeTreeApi.async_create(hass, "user@example.com", "pw"))
+    check(isinstance(api, api_mod.TimeTreeApi))
+    check(hass.executor_calls == 1, f"executor calls: {hass.executor_calls}")
+    check(api.session_id is None)
+    check(api.browser_transport in (True, False))
+
+
+def test_no_inline_api_construction():
+    """No module builds the API client inline on the event loop."""
+    for name in ("api", "config_flow", "__init__"):
+        module = ha_stub.import_module(name)
+        source = inspect.getsource(module)
+        check(
+            re.search(r"TimeTreeApi\(", source) is None,
+            f"{name}.py must build the client with TimeTreeApi.async_create()",
+        )
+
+
 # ---------------------------------------------------------------------------
 # runner
 # ---------------------------------------------------------------------------
@@ -1649,6 +1706,10 @@ TESTS = [
     test_options_from_entry,
     test_export_attendee_filter,
     test_all_modules_import,
+    test_transport_module_level_imports,
+    test_create_transport_fallback_without_curl_cffi,
+    test_api_async_create_runs_in_executor,
+    test_no_inline_api_construction,
 ]
 
 

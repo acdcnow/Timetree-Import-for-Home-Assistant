@@ -13,6 +13,7 @@ TimeTree is the source of truth. Every run:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid as uuid_lib
 from dataclasses import dataclass, field
@@ -389,7 +390,7 @@ class ExportManager:
 
     async def _async_startup_run(self) -> None:
         """Run the first export after startup."""
-        await asyncio_sleep(STARTUP_DELAY.total_seconds())
+        await asyncio.sleep(STARTUP_DELAY.total_seconds())
         try:
             await self.async_run(reason="startup")
         except Exception as err:  # noqa: BLE001 - never break startup
@@ -1230,10 +1231,3 @@ def extract_created_uuid(result: Mapping[str, Any] | None) -> str | None:
                 return str(uuid)
     uuid = result.get("uuid")
     return str(uuid) if uuid else None
-
-
-async def asyncio_sleep(seconds: float) -> None:
-    """Sleep without importing asyncio at module level."""
-    import asyncio  # noqa: PLC0415
-
-    await asyncio.sleep(seconds)

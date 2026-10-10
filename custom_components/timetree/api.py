@@ -23,9 +23,26 @@ import asyncio
 import logging
 import re
 import threading
+import uuid as uuid_lib
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial
 from typing import Any
 from collections.abc import Mapping, Sequence
+
+# The transport libraries are imported at module level on purpose. Home Assistant
+# loads integration modules in the executor, while a deferred import inside a
+# coroutine runs in the event loop - and ``curl_cffi`` reads package metadata
+# through ``importlib.metadata``, which scans ``site-packages`` (a blocking
+# ``listdir`` that trips HA's blocking call detector).
+try:  # pragma: no cover - depends on the installed wheels
+    from curl_cffi import requests as curl_requests
+except Exception:  # noqa: BLE001 - optional native dependency
+    curl_requests = None
+
+try:  # pragma: no cover - ``requests`` ships with Home Assistant
+    import requests as plain_requests
+except Exception:  # noqa: BLE001 - optional dependency
+    plain_requests = None
 
 from .const import (
     API_BASE_URI,
@@ -89,15 +106,25 @@ class TimeTreeWriteError(TimeTreeApiError):
 def create_transport(
     impersonate: str = IMPERSONATE,
 ) -> tuple[Any, bool]:
-    """Return a HTTP session, preferring a browser shaped TLS stack."""
-    try:
-        from curl_cffi import requests as curl_requests  # noqa: PLC0415
+    """Return a HTTP session, preferring a browser shaped TLS stack.
 
-        return curl_requests.Session(impersonate=impersonate), True
-    except Exception:  # noqa: BLE001 - optional native dependency
-        import requests  # noqa: PLC0415
-
-        return requests.Session(), False
+    Synchronous on purpose: the caller runs it in the executor. Do not import
+    the transport libraries here - see the note on the module level imports.
+    """
+    if curl_requests is not None:
+        try:
+            return curl_requests.Session(impersonate=impersonate), True
+        except Exception:  # noqa: BLE001 - optional native dependency
+            _LOGGER.debug(
+                "curl_cffi is installed but no session could be created, "
+                "falling back to requests",
+                exc_info=True,
+            )
+    if plain_requests is None:
+        raise TimeTreeError(
+            "No HTTP transport available, install curl_cffi or requests"
+        )
+    return plain_requests.Session(), False
 
 
 class TimeTreeApi:
@@ -123,6 +150,24 @@ class TimeTreeApi:
         self._user_id: int | None = None
         self._lock = threading.Lock()
         self._calendar_labels: dict[str, dict[int, TimeTreeLabel]] = {}
+
+    @classmethod
+    async def async_create(
+        cls,
+        hass: Any,
+        email: str,
+        password: str,
+        impersonate: str = IMPERSONATE,
+    ) -> TimeTreeApi:
+        """Create a client without blocking the event loop.
+
+        Building the session loads a native TLS library, so the constructor has
+        to run in the executor as well. ``impersonate`` is keyword only, hence
+        the partial (``async_add_executor_job`` forwards positional args only).
+        """
+        return await hass.async_add_executor_job(
+            partial(cls, hass, email, password, impersonate=impersonate)
+        )
 
     # ------------------------------------------------------------------
     # transport helpers (blocking)
@@ -164,8 +209,6 @@ class TimeTreeApi:
 
     def _login(self) -> None:
         """Log in and store the session cookie."""
-        import uuid as uuid_lib  # noqa: PLC0415
-
         url = f"{API_BASE_URI}/auth/email/signin"
         payload = {
             "uid": self._email,
