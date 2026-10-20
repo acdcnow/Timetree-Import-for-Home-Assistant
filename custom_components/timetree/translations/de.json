@@ -77,7 +77,12 @@
           "export_delete_removed": "Exportierte Kopien gelöschter TimeTree Termine löschen",
           "export_recreate_removed": "Gelöschte exportierte Kopien neu anlegen",
           "export_dry_run": "Testlauf (nur Bericht)",
-          "import_unmanaged": "Termine importieren, die nur im Ziel existieren"
+          "import_unmanaged": "Termine importieren, die nur im Ziel existieren",
+          "export_attendees": "Nach Teilnehmern filtern",
+          "export_include_untagged": "Termine ohne zugewiesene Mitglieder einbeziehen",
+          "export_tags": "Nach Kategorien/Tags filtern",
+          "export_include_untagged_tags": "Termine ohne Tags einbeziehen",
+          "export_filter_mode": "Filter-Kombinationslogik"
         }
       },
       "conflicts": {
@@ -95,6 +100,12 @@
     }
   },
   "selector": {
+    "export_filter_mode": {
+      "options": {
+        "all": "Alle Filter müssen zutreffen (UND)",
+        "any": "Mindestens ein Filter muss zutreffen (ODER)"
+      }
+    },
     "export_direction": {
       "options": {
         "export_only": "TimeTree zum Zielkalender",

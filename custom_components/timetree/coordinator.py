@@ -87,6 +87,7 @@ class TimeTreeCoordinator(DataUpdateCoordinator[TimeTreeData]):
         self.options = options
         self.last_update_success_time: datetime | None = None
         self._user_names: dict[str, dict[int, str]] = {}
+        self._labels: dict[str, dict[int, str]] = {}
         self._alias_codes: dict[str, str | None] = {
             calendar_id: option.alias_code
             for calendar_id, option in options.calendars.items()
@@ -122,6 +123,17 @@ class TimeTreeCoordinator(DataUpdateCoordinator[TimeTreeData]):
         for calendar in calendars:
             self._user_names[calendar.calendar_id] = calendar.users
             self._alias_codes[calendar.calendar_id] = calendar.alias_code
+            try:
+                labels_map = await self.hass.async_add_executor_job(
+                    self.api._get_labels, calendar.calendar_id
+                )
+                self._labels[calendar.calendar_id] = {
+                    lbl.label_id: lbl.name for lbl in labels_map.values()
+                }
+            except Exception as err:
+                _LOGGER.debug(
+                    "Could not refresh labels for %s: %s", calendar.calendar_id, err
+                )
 
     async def _async_update_data(self) -> TimeTreeData:
         """Fetch the events of every selected calendar."""
@@ -143,6 +155,10 @@ class TimeTreeCoordinator(DataUpdateCoordinator[TimeTreeData]):
             except TimeTreeApiError as err:
                 errors.append(f"{calendar.name}: {err}")
                 continue
+            if calendar.labels:
+                self._labels[calendar_id] = {
+                    lbl.label_id: lbl.name for lbl in calendar.labels.values()
+                }
             calendars[calendar_id] = CalendarData(
                 calendar=calendar,
                 events={event.uuid: event for event in events if event.uuid},

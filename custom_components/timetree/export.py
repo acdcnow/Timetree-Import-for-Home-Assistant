@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import uuid as uuid_lib
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
@@ -51,6 +52,7 @@ from .const import (
     DOMAIN,
     EVENT_CONFLICT_DETECTED,
     EVENT_EXPORT_COMPLETED,
+    FILTER_MODE_ANY,
     RESOLUTION_IGNORE,
     RESOLUTION_SKIP,
     SIGNAL_STORE_UPDATED,
@@ -527,9 +529,9 @@ class ExportManager:
                 # copy must not be mistaken for a deletion.
                 report.skipped += 1
                 continue
-            if source_event is not None and not self._matches_export_attendees(source_event):
+            if source_event is not None and not self._matches_export_filters(source_event):
                 if record is not None and record.exported:
-                    # Previously exported, but attendee unselected: treat as removed
+                    # Previously exported, but no longer matches filters: treat as removed
                     source_event = None
                 else:
                     report.skipped += 1
@@ -654,6 +656,47 @@ class ExportManager:
         event_ids = {str(uid).strip().lower() for uid in event.attendee_ids}
         event_names = {str(name).strip().lower() for name in event.attendee_names}
         return bool((event_ids | event_names) & selected_set)
+
+    def _matches_export_tags(self, event: TimeTreeEvent) -> bool:
+        """Return True when an event matches the tag/label export filter."""
+        selected = self.options.export_tags
+        if not selected:
+            return True
+        selected_set = {str(item).strip().lower() for item in selected}
+        event_ids = (
+            {str(event.label_id).strip().lower()}
+            if event.label_id is not None and event.label_id != 0
+            else set()
+        )
+        event_names = (
+            {event.label_name.strip().lower()}
+            if event.label_name and event.label_name.strip()
+            else set()
+        )
+        if (event_ids | event_names) & selected_set:
+            return True
+        if not event_names:
+            return self.options.export_include_untagged_tags
+        return False
+
+    def _matches_export_filters(self, event: TimeTreeEvent) -> bool:
+        """Return True when an event matches the configured export filters."""
+        has_user_filter = bool(self.options.export_attendees)
+        has_tag_filter = bool(self.options.export_tags)
+        if not has_user_filter and not has_tag_filter:
+            return True
+
+        user_match = self._matches_export_attendees(event)
+        tag_match = self._matches_export_tags(event)
+
+        if has_user_filter and has_tag_filter:
+            if self.options.export_filter_mode == FILTER_MODE_ANY:
+                return user_match or tag_match
+            return user_match and tag_match
+
+        if has_user_filter:
+            return user_match
+        return tag_match
 
     def _source_state(self, event: TimeTreeEvent) -> EventState:
         """Return the comparable state of a TimeTree event."""
@@ -842,7 +885,7 @@ class ExportManager:
         self, calendar_id: str, uuid: str, state: EventState
     ) -> None:
         """Write the target state back into TimeTree."""
-        payload = self._payload_from_state(state)
+        payload = self._payload_from_state(state, calendar_id, uuid=uuid)
         await self.coordinator.async_update_event(calendar_id, uuid, payload)
 
     async def _async_create_source(
@@ -858,7 +901,7 @@ class ExportManager:
         if not calendar_ids:
             raise ExportError("no TimeTree calendar is configured")
         calendar_id = calendar_ids[0]
-        payload = self._payload_from_state(state)
+        payload = self._payload_from_state(state, calendar_id)
         payload["uuid"] = uuid
         result = await self.coordinator.async_create_event(calendar_id, payload)
         created_uuid = extract_created_uuid(result) or uuid
@@ -896,7 +939,7 @@ class ExportManager:
             report.skipped += 1
             return
         new_uuid = uuid_lib.uuid4().hex
-        payload = self._payload_from_state(state)
+        payload = self._payload_from_state(state, calendar_ids[0])
         payload["uuid"] = new_uuid
         result = await self.coordinator.async_create_event(calendar_ids[0], payload)
         created_uuid = extract_created_uuid(result) or new_uuid
@@ -939,18 +982,129 @@ class ExportManager:
         except (ExportError, HomeAssistantError) as err:
             _LOGGER.warning("Could not re-tag the exported copy: %s", err)
 
-    def _payload_from_state(self, state: EventState) -> dict[str, Any]:
+    def _resolve_tags_and_attendees_from_description(
+        self,
+        description: str,
+        calendar_id: str | None,
+    ) -> tuple[int | None, list[int]]:
+        """Parse hashtags and tag lines from description and resolve to label_id and attendee user IDs."""
+        if not description or not calendar_id:
+            return None, []
+
+        labels_map: dict[int, str] = {}
+        if hasattr(self.coordinator, "_labels"):
+            labels_map = dict(self.coordinator._labels.get(str(calendar_id), {}))
+        if not labels_map and getattr(self.coordinator, "data", None):
+            cal_data = self.coordinator.data.get(str(calendar_id))
+            if cal_data and getattr(cal_data.calendar, "labels", None):
+                labels_map = {
+                    lbl.label_id: lbl.name
+                    for lbl in cal_data.calendar.labels.values()
+                }
+
+        users_map: dict[int, str] = {}
+        if hasattr(self.coordinator, "_user_names"):
+            users_map = dict(self.coordinator._user_names.get(str(calendar_id), {}))
+        if not users_map and getattr(self.coordinator, "data", None):
+            cal_data = self.coordinator.data.get(str(calendar_id))
+            if cal_data and getattr(cal_data.calendar, "users", None):
+                users_map = cal_data.calendar.users
+
+        # Build lookup maps (lowercase name -> id, and string id -> id)
+        label_lookup: dict[str, int] = {}
+        for l_id, l_name in labels_map.items():
+            if l_name:
+                label_lookup[str(l_name).strip().lower()] = int(l_id)
+            label_lookup[str(l_id)] = int(l_id)
+
+        user_lookup: dict[str, int] = {}
+        for u_id, u_name in users_map.items():
+            if u_name:
+                user_lookup[str(u_name).strip().lower()] = int(u_id)
+            user_lookup[str(u_id)] = int(u_id)
+
+        matched_label_id: int | None = None
+        matched_attendee_ids: list[int] = []
+
+        # 1. Parse hashtags: #tag (e.g. #Work, #Family, #A&B, #Everyone)
+        raw_tags = re.findall(r"#([^\s#]+)", description)
+        for raw in raw_tags:
+            cleaned = raw.rstrip(".,;:!?)\"']").strip().lower()
+            if not cleaned:
+                continue
+            if matched_label_id is None and cleaned in label_lookup:
+                matched_label_id = label_lookup[cleaned]
+            if cleaned in user_lookup and user_lookup[cleaned] not in matched_attendee_ids:
+                matched_attendee_ids.append(user_lookup[cleaned])
+
+        hashtag_attendees_found = bool(matched_attendee_ids)
+        # 2. Also check key-value lines: tag: ..., label: ..., TimeTree label: ...
+        for line in description.splitlines():
+            line_str = line.strip()
+            lower = line_str.lower()
+            for prefix in ("timetree label:", "label:", "tag:"):
+                if lower.startswith(prefix):
+                    val = line_str[len(prefix) :].strip().lower()
+                    if matched_label_id is None and val in label_lookup:
+                        matched_label_id = label_lookup[val]
+            if not hashtag_attendees_found:
+                for prefix in ("timetree attendees:", "attendees:"):
+                    if lower.startswith(prefix):
+                        names = [n.strip().lower() for n in line_str[len(prefix) :].split(",")]
+                        for n in names:
+                            if n in user_lookup and user_lookup[n] not in matched_attendee_ids:
+                                matched_attendee_ids.append(user_lookup[n])
+
+        return matched_label_id, matched_attendee_ids
+
+    @staticmethod
+    def _strip_exported_details(description: str) -> str:
+        """Remove auto-generated TimeTree detail footer lines before writing note back."""
+        if not description:
+            return ""
+        kept = [
+            line
+            for line in description.splitlines()
+            if not line.strip().lower().startswith(("timetree label:", "timetree attendees:"))
+        ]
+        return "\n".join(kept).rstrip()
+
+    def _payload_from_state(
+        self,
+        state: EventState,
+        calendar_id: str | None = None,
+        uuid: str | None = None,
+    ) -> dict[str, Any]:
         """Convert a stored state into a TimeTree write payload."""
         start = parse_iso_value(state.start, state.all_day)
         end = parse_iso_value(state.end, state.all_day)
         recurrences = [f"RRULE:{state.rrule}"] if state.rrule else []
+        cal_id = calendar_id or (
+            self.coordinator.calendar_ids[0] if self.coordinator.calendar_ids else None
+        )
+        label_id, attendees = (
+            self._resolve_tags_and_attendees_from_description(state.description, cal_id)
+            if cal_id
+            else (None, [])
+        )
+        if uuid and getattr(self.coordinator, "data", None) is not None:
+            found = self.coordinator.data.find_event(uuid)
+            if found is not None:
+                existing_event = found[1]
+                if label_id is None:
+                    label_id = existing_event.label_id
+                if not attendees and existing_event.attendee_ids:
+                    attendees = existing_event.attendee_ids
+
         return build_event_payload(
             title=state.summary,
-            note=state.description,
+            note=self._strip_exported_details(state.description),
             location=state.location,
             start=start,
             end=end,
             all_day=state.all_day,
+            label_id=label_id,
+            attendees=attendees,
             recurrences=recurrences,
         )
 

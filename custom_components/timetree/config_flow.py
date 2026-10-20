@@ -30,11 +30,14 @@ from .const import (
     CONF_EXPORT_DIRECTION,
     CONF_EXPORT_DRY_RUN,
     CONF_EXPORT_ENABLED,
+    CONF_EXPORT_FILTER_MODE,
     CONF_EXPORT_FUTURE_DAYS,
     CONF_EXPORT_INCLUDE_UNTAGGED,
+    CONF_EXPORT_INCLUDE_UNTAGGED_TAGS,
     CONF_EXPORT_INTERVAL,
     CONF_EXPORT_PAST_DAYS,
     CONF_EXPORT_RECREATE_REMOVED,
+    CONF_EXPORT_TAGS,
     CONF_EXPORT_TARGET,
     CONF_IMPORT_UNMANAGED,
     CONF_INCLUDE_BIRTHDAYS,
@@ -47,6 +50,8 @@ from .const import (
     DIRECTIONS,
     DIRECTION_EXPORT_ONLY,
     DOMAIN,
+    FILTER_MODES,
+    FILTER_MODE_ALL,
     MAX_EXPORT_DAYS,
     MAX_EXPORT_INTERVAL,
     MAX_SCAN_INTERVAL,
@@ -303,6 +308,9 @@ class TimeTreeOptionsFlow(OptionsFlow):
             CONF_IMPORT_UNMANAGED: options.import_unmanaged,
             CONF_EXPORT_ATTENDEES: [str(item) for item in options.export_attendees],
             CONF_EXPORT_INCLUDE_UNTAGGED: options.export_include_untagged,
+            CONF_EXPORT_TAGS: [str(item) for item in options.export_tags],
+            CONF_EXPORT_INCLUDE_UNTAGGED_TAGS: options.export_include_untagged_tags,
+            CONF_EXPORT_FILTER_MODE: options.export_filter_mode,
             CONF_CONFLICT_POLICY: options.conflict_policy,
             CONF_NOTIFY_CONFLICTS: options.notify_conflicts,
         }
@@ -514,11 +522,49 @@ class TimeTreeOptionsFlow(OptionsFlow):
                     )
                 )
 
+        # Dynamically discover tags/labels from the coordinator
+        tag_options: list[selector.SelectOptionDict] = []
+        seen_tag_ids: set[str] = set()
+        if runtime is not None and getattr(runtime, "coordinator", None) is not None:
+            coordinator = runtime.coordinator
+            for cal_id in coordinator.calendar_ids:
+                labels_map = coordinator._labels.get(str(cal_id), {})
+                if not labels_map and coordinator.data:
+                    cal_data = coordinator.data.get(str(cal_id))
+                    if cal_data and cal_data.calendar.labels:
+                        labels_map = {
+                            lbl.label_id: lbl.name
+                            for lbl in cal_data.calendar.labels.values()
+                        }
+                for l_id, l_name in labels_map.items():
+                    val = l_name or str(l_id)
+                    if val.lower() not in seen_tag_ids:
+                        seen_tag_ids.add(val.lower())
+                        tag_options.append(
+                            selector.SelectOptionDict(
+                                value=val,
+                                label=l_name or f"Label {l_id}",
+                            )
+                        )
+        for tag in current.export_tags:
+            if tag.lower() not in seen_tag_ids:
+                seen_tag_ids.add(tag.lower())
+                tag_options.append(
+                    selector.SelectOptionDict(
+                        value=tag,
+                        label=tag,
+                    )
+                )
+
         if user_options:
             schema[
                 vol.Optional(
                     CONF_EXPORT_ATTENDEES,
-                    default=[str(uid) for uid in current.export_attendees if str(uid).lower() in seen_user_ids],
+                    default=[
+                        str(uid)
+                        for uid in current.export_attendees
+                        if str(uid).lower() in seen_user_ids
+                    ],
                 )
             ] = selector.SelectSelector(
                 selector.SelectSelectorConfig(
@@ -533,6 +579,44 @@ class TimeTreeOptionsFlow(OptionsFlow):
                     default=current.export_include_untagged,
                 )
             ] = selector.BooleanSelector()
+
+        if tag_options:
+            schema[
+                vol.Optional(
+                    CONF_EXPORT_TAGS,
+                    default=[
+                        str(t)
+                        for t in current.export_tags
+                        if str(t).lower() in seen_tag_ids
+                    ],
+                )
+            ] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=tag_options,
+                    multiple=True,
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            )
+            schema[
+                vol.Required(
+                    CONF_EXPORT_INCLUDE_UNTAGGED_TAGS,
+                    default=current.export_include_untagged_tags,
+                )
+            ] = selector.BooleanSelector()
+
+        if user_options and tag_options:
+            schema[
+                vol.Required(
+                    CONF_EXPORT_FILTER_MODE,
+                    default=current.export_filter_mode or FILTER_MODE_ALL,
+                )
+            ] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=FILTER_MODES,
+                    translation_key="export_filter_mode",
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            )
 
         if current.export_target:
             schema[

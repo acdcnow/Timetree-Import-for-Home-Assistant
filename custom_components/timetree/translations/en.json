@@ -77,7 +77,12 @@
           "export_delete_removed": "Delete exported copies of removed TimeTree events",
           "export_recreate_removed": "Recreate deleted exported copies",
           "export_dry_run": "Dry run (only report)",
-          "import_unmanaged": "Import events that only exist in the target"
+          "import_unmanaged": "Import events that only exist in the target",
+          "export_attendees": "Filter by attendees/members",
+          "export_include_untagged": "Include events without assigned members",
+          "export_tags": "Filter by labels/tags",
+          "export_include_untagged_tags": "Include events without tags",
+          "export_filter_mode": "Filter combination logic"
         }
       },
       "conflicts": {
@@ -95,6 +100,12 @@
     }
   },
   "selector": {
+    "export_filter_mode": {
+      "options": {
+        "all": "Match all filters (AND)",
+        "any": "Match any filter (OR)"
+      }
+    },
     "export_direction": {
       "options": {
         "export_only": "TimeTree to the export target",

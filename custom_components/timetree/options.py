@@ -19,11 +19,14 @@ from .const import (
     CONF_EXPORT_DIRECTION,
     CONF_EXPORT_DRY_RUN,
     CONF_EXPORT_ENABLED,
+    CONF_EXPORT_FILTER_MODE,
     CONF_EXPORT_FUTURE_DAYS,
     CONF_EXPORT_INCLUDE_UNTAGGED,
+    CONF_EXPORT_INCLUDE_UNTAGGED_TAGS,
     CONF_EXPORT_INTERVAL,
     CONF_EXPORT_PAST_DAYS,
     CONF_EXPORT_RECREATE_REMOVED,
+    CONF_EXPORT_TAGS,
     CONF_EXPORT_TARGET,
     CONF_IMPORT_UNMANAGED,
     CONF_INCLUDE_BIRTHDAYS,
@@ -35,6 +38,7 @@ from .const import (
     DEFAULT_EXPORT_PAST_DAYS,
     DEFAULT_SCAN_INTERVAL,
     DIRECTION_EXPORT_ONLY,
+    FILTER_MODE_ALL,
     POLICY_MANUAL,
 )
 
@@ -78,6 +82,9 @@ class TimeTreeOptions:
     import_unmanaged: bool = False
     export_attendees: list[str] = field(default_factory=list)
     export_include_untagged: bool = True
+    export_tags: list[str] = field(default_factory=list)
+    export_include_untagged_tags: bool = True
+    export_filter_mode: str = FILTER_MODE_ALL
 
     conflict_policy: str = POLICY_MANUAL
     notify_conflicts: bool = True
@@ -140,6 +147,13 @@ class TimeTreeOptions:
                 str(item) for item in get(CONF_EXPORT_ATTENDEES, []) or [] if item
             ],
             export_include_untagged=bool(get(CONF_EXPORT_INCLUDE_UNTAGGED, True)),
+            export_tags=[
+                str(item) for item in get(CONF_EXPORT_TAGS, []) or [] if item
+            ],
+            export_include_untagged_tags=bool(
+                get(CONF_EXPORT_INCLUDE_UNTAGGED_TAGS, True)
+            ),
+            export_filter_mode=str(get(CONF_EXPORT_FILTER_MODE, FILTER_MODE_ALL)),
             conflict_policy=str(get(CONF_CONFLICT_POLICY, POLICY_MANUAL)),
             notify_conflicts=bool(get(CONF_NOTIFY_CONFLICTS, True)),
         )

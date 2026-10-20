@@ -74,9 +74,10 @@ class TimeTreeLastUpdatedSensor(TimeTreeCalendarEntityBase, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return discovered calendar members."""
+        """Return discovered calendar members and labels."""
         return {
             "members": self.coordinator._user_names.get(self.calendar_id, {}),
+            "labels": self.coordinator._labels.get(self.calendar_id, {}),
         }
 
 

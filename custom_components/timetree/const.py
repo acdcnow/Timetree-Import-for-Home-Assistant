@@ -46,6 +46,13 @@ CONF_CONFLICT_POLICY: Final = "conflict_policy"
 CONF_NOTIFY_CONFLICTS: Final = "notify_conflicts"
 CONF_EXPORT_ATTENDEES: Final = "export_attendees"
 CONF_EXPORT_INCLUDE_UNTAGGED: Final = "export_include_untagged"
+CONF_EXPORT_TAGS: Final = "export_tags"
+CONF_EXPORT_INCLUDE_UNTAGGED_TAGS: Final = "export_include_untagged_tags"
+CONF_EXPORT_FILTER_MODE: Final = "export_filter_mode"
+
+FILTER_MODE_ALL: Final = "all"
+FILTER_MODE_ANY: Final = "any"
+FILTER_MODES: Final = [FILTER_MODE_ALL, FILTER_MODE_ANY]
 
 # --- defaults ---------------------------------------------------------------
 DEFAULT_SCAN_INTERVAL: Final = 60

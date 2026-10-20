@@ -1044,6 +1044,8 @@ class FakeCoordinator:
         self.created: list[tuple[str, dict]] = []
         self.updated: list[tuple[str, str, dict]] = []
         self.deleted: list[tuple[str, str]] = []
+        self._labels: dict[str, dict[int, str]] = {}
+        self._user_names: dict[str, dict[int, str]] = {}
 
     @property
     def calendar_ids(self):
@@ -1533,42 +1535,307 @@ def test_options_from_entry():
 def test_export_attendee_filter():
     """Export only creates copies for events matching selected attendees."""
     target = FakeTargetEntity()
-    joshua_event = make_source_event(uuid="joshua-1", title="Joshua Appointment")
-    joshua_event.attendee_names = ["Joshua"]
-    joshua_event.attendee_ids = [101]
+    alice_event = make_source_event(uuid="alice-1", title="Alice Appointment")
+    alice_event.attendee_names = ["Alice"]
+    alice_event.attendee_ids = [101]
 
-    shell_event = make_source_event(uuid="shell-1", title="Shell Appointment")
-    shell_event.attendee_names = ["Shell"]
-    shell_event.attendee_ids = [102]
+    bob_event = make_source_event(uuid="bob-1", title="Bob Appointment")
+    bob_event.attendee_names = ["Bob"]
+    bob_event.attendee_ids = [102]
 
     untagged_event = make_source_event(uuid="all-1", title="Family Holiday")
     untagged_event.attendee_names = []
     untagged_event.attendee_ids = []
 
-    # 1. Filter set to Joshua only, untagged included
+    # 1. Filter set to Alice only, untagged included
     manager, coordinator, store, hass = make_manager(
         target,
-        [joshua_event, shell_event, untagged_event],
-        export_attendees=["Joshua"],
+        [alice_event, bob_event, untagged_event],
+        export_attendees=["Alice"],
         export_include_untagged=True,
     )
     report = ha_stub.run(manager.async_run(reason="manual"))
     check(report.ok, str(report.errors))
-    check(report.created == 2, f"expected 2 created (Joshua + untagged), got {report.created}")
-    check(report.skipped == 1, f"expected 1 skipped (Shell), got {report.skipped}")
+    check(report.created == 2, f"expected 2 created (Alice + untagged), got {report.created}")
+    check(report.skipped == 1, f"expected 1 skipped (Bob), got {report.skipped}")
 
-    # 2. Filter set to Joshua only, untagged EXCLUDED
+    # 2. Filter set to Alice only, untagged EXCLUDED
     target2 = FakeTargetEntity()
     manager2, coordinator2, store2, hass2 = make_manager(
         target2,
-        [joshua_event, shell_event, untagged_event],
-        export_attendees=["Joshua"],
+        [alice_event, bob_event, untagged_event],
+        export_attendees=["Alice"],
         export_include_untagged=False,
     )
     report2 = ha_stub.run(manager2.async_run(reason="manual"))
     check(report2.ok, str(report2.errors))
-    check(report2.created == 1, f"expected 1 created (Joshua only), got {report2.created}")
-    check(report2.skipped == 2, f"expected 2 skipped (Shell + untagged), got {report2.skipped}")
+    check(report2.created == 1, f"expected 1 created (Alice only), got {report2.created}")
+    check(report2.skipped == 2, f"expected 2 skipped (Bob + untagged), got {report2.skipped}")
+
+
+def test_export_tag_filter():
+    """Export only creates copies for events matching selected tags/labels."""
+    target = FakeTargetEntity()
+    work_event = make_source_event(uuid="work-1", title="Work Meeting")
+    work_event.label_name = "Work"
+    work_event.label_id = 1
+
+    personal_event = make_source_event(uuid="pers-1", title="Doctor Visit")
+    personal_event.label_name = "Personal"
+    personal_event.label_id = 2
+
+    untagged_event = make_source_event(uuid="none-1", title="Untagged Event")
+    untagged_event.label_name = None
+    untagged_event.label_id = None
+
+    unnamed_color_event = make_source_event(uuid="color-5", title="Unnamed Color Event")
+    unnamed_color_event.label_name = ""
+    unnamed_color_event.label_id = 5
+
+    # 1. Filter set to Work only, untagged included
+    manager, coordinator, store, hass = make_manager(
+        target,
+        [work_event, personal_event, untagged_event, unnamed_color_event],
+        export_tags=["Work"],
+        export_include_untagged_tags=True,
+    )
+    report = ha_stub.run(manager.async_run(reason="manual"))
+    check(report.ok, str(report.errors))
+    check(report.created == 3, f"expected 3 created (Work + 2 untagged), got {report.created}")
+    check(report.skipped == 1, f"expected 1 skipped (Personal), got {report.skipped}")
+
+    # 2. Filter set to Work only, untagged EXCLUDED
+    target2 = FakeTargetEntity()
+    manager2, coordinator2, store2, hass2 = make_manager(
+        target2,
+        [work_event, personal_event, untagged_event, unnamed_color_event],
+        export_tags=["Work"],
+        export_include_untagged_tags=False,
+    )
+    report2 = ha_stub.run(manager2.async_run(reason="manual"))
+    check(report2.ok, str(report2.errors))
+    check(report2.created == 1, f"expected 1 created (Work only), got {report2.created}")
+    check(report2.skipped == 3, f"expected 3 skipped (Personal + 2 untagged), got {report2.skipped}")
+
+    # 3. Filter set by numeric label ID "1"
+    target3 = FakeTargetEntity()
+    manager3, coordinator3, store3, hass3 = make_manager(
+        target3,
+        [work_event, personal_event, untagged_event, unnamed_color_event],
+        export_tags=["1"],
+        export_include_untagged_tags=False,
+    )
+    report3 = ha_stub.run(manager3.async_run(reason="manual"))
+    check(report3.ok, str(report3.errors))
+    check(report3.created == 1, f"expected 1 created (Work id 1), got {report3.created}")
+
+
+def test_export_combined_user_and_tag_filter():
+    """Export evaluates user and tag combinations under AND vs OR modes."""
+    # Event 1: Alice + Work
+    e1 = make_source_event(uuid="e1", title="Alice Work")
+    e1.attendee_names = ["Alice"]
+    e1.attendee_ids = [101]
+    e1.label_name = "Work"
+    e1.label_id = 1
+
+    # Event 2: Alice + Personal
+    e2 = make_source_event(uuid="e2", title="Alice Personal")
+    e2.attendee_names = ["Alice"]
+    e2.attendee_ids = [101]
+    e2.label_name = "Personal"
+    e2.label_id = 2
+
+    # Event 3: Bob + Work
+    e3 = make_source_event(uuid="e3", title="Bob Work")
+    e3.attendee_names = ["Bob"]
+    e3.attendee_ids = [102]
+    e3.label_name = "Work"
+    e3.label_id = 1
+
+    # Event 4: Bob + Personal
+    e4 = make_source_event(uuid="e4", title="Bob Personal")
+    e4.attendee_names = ["Bob"]
+    e4.attendee_ids = [102]
+    e4.label_name = "Personal"
+    e4.label_id = 2
+
+    all_events = [e1, e2, e3, e4]
+
+    # Test AND mode (FILTER_MODE_ALL) -> only e1 (Alice + Work) matches
+    target_and = FakeTargetEntity()
+    manager_and, _, _, _ = make_manager(
+        target_and,
+        all_events,
+        export_attendees=["Alice"],
+        export_tags=["Work"],
+        export_filter_mode=const.FILTER_MODE_ALL,
+    )
+    report_and = ha_stub.run(manager_and.async_run(reason="manual"))
+    check(report_and.ok, str(report_and.errors))
+    check(report_and.created == 1, f"AND mode expected 1 created (e1 only), got {report_and.created}")
+    check(report_and.skipped == 3, f"AND mode expected 3 skipped, got {report_and.skipped}")
+
+    # Test OR mode (FILTER_MODE_ANY) -> e1, e2, e3 match; e4 skipped
+    target_or = FakeTargetEntity()
+    manager_or, _, _, _ = make_manager(
+        target_or,
+        all_events,
+        export_attendees=["Alice"],
+        export_tags=["Work"],
+        export_filter_mode=const.FILTER_MODE_ANY,
+    )
+    report_or = ha_stub.run(manager_or.async_run(reason="manual"))
+    check(report_or.ok, str(report_or.errors))
+    check(report_or.created == 3, f"OR mode expected 3 created (e1, e2, e3), got {report_or.created}")
+    check(report_or.skipped == 1, f"OR mode expected 1 skipped (e4), got {report_or.skipped}")
+
+
+def test_export_import_unmanaged_description_hashtags():
+    """Unmanaged events from target parse single and multiple hashtags from description."""
+    target = FakeTargetEntity()
+    # Event 1: Single hashtag matching label "Charlie"
+    target.events.append(
+        calendar_mod.CalendarEvent(
+            summary="Soccer Practice",
+            start=datetime.now(VIENNA) + timedelta(days=2),
+            end=datetime.now(VIENNA) + timedelta(days=2, hours=1),
+            uid="gcal-charlie-1",
+            description="Bring shin pads\n#Charlie",
+        )
+    )
+    # Event 2: Multiple hashtags matching label Alice and members Alice + Bob
+    target.events.append(
+        calendar_mod.CalendarEvent(
+            summary="Dentist Checkup",
+            start=datetime.now(VIENNA) + timedelta(days=3),
+            end=datetime.now(VIENNA) + timedelta(days=3, hours=1),
+            uid="gcal-multi-2",
+            description="Annual checkup #Alice, #Bob.",
+        )
+    )
+    # Event 3: Hashtag with special characters #A&B
+    target.events.append(
+        calendar_mod.CalendarEvent(
+            summary="Anniversary Dinner",
+            start=datetime.now(VIENNA) + timedelta(days=4),
+            end=datetime.now(VIENNA) + timedelta(days=4, hours=2),
+            uid="gcal-ab-3",
+            description="Table reserved #A&B",
+        )
+    )
+
+    manager, coordinator, store, hass = make_manager(
+        target,
+        [],
+        export_direction=const.DIRECTION_TWO_WAY,
+        import_unmanaged=True,
+    )
+    coordinator._labels = {
+        "42": {
+            1: "Everyone",
+            2: "Bob",
+            3: "Alice",
+            6: "Charlie",
+            10: "A&B",
+        }
+    }
+    coordinator._user_names = {
+        "42": {
+            101: "Alice",
+            102: "Bob",
+        }
+    }
+
+    report = ha_stub.run(manager.async_run(reason="manual"))
+    check(report.ok, str(report.errors))
+    check(report.imported == 3, report.summary())
+    check(len(coordinator.created) == 3)
+
+    # Check Event 1 payload (Charlie -> label_id 6)
+    _, p1 = coordinator.created[0]
+    check(p1["title"] == "Soccer Practice", p1["title"])
+    check(p1["label_id"] == 6, f"expected label_id 6, got {p1.get('label_id')}")
+
+    # Check Event 2 payload (Alice + Bob -> label_id 3, attendees [101, 102])
+    _, p2 = coordinator.created[1]
+    check(p2["title"] == "Dentist Checkup", p2["title"])
+    check(p2["label_id"] == 3, f"expected label_id 3, got {p2.get('label_id')}")
+    check(101 in p2["attendees"], f"expected Alice in attendees: {p2.get('attendees')}")
+    check(102 in p2["attendees"], f"expected Bob in attendees: {p2.get('attendees')}")
+
+    # Check Event 3 payload (A&B -> label_id 10)
+    _, p3 = coordinator.created[2]
+    check(p3["title"] == "Anniversary Dinner", p3["title"])
+    check(p3["label_id"] == 10, f"expected label_id 10, got {p3.get('label_id')}")
+
+
+def test_export_update_existing_event_description_syncs_back():
+    """Editing the description of an existing exported event syncs back to TimeTree."""
+    target = FakeTargetEntity()
+    event = make_source_event(uuid="evt-update-1", title="Original Meeting")
+    event.label_id = 2
+    event.label_name = "Bob"
+    event.attendee_ids = [102]
+    event.attendee_names = ["Bob"]
+    event.note = "Original note"
+
+    manager, coordinator, store, hass = make_manager(
+        target,
+        [event],
+        export_direction=const.DIRECTION_TWO_WAY,
+        conflict_policy=const.POLICY_TARGET_WINS,
+    )
+    coordinator._labels = {
+        "42": {
+            1: "Everyone",
+            2: "Bob",
+            3: "Alice",
+            6: "Charlie",
+        }
+    }
+    coordinator._user_names = {
+        "42": {
+            101: "Alice",
+            102: "Bob",
+        }
+    }
+
+    # First run exports event to target (with TimeTree label/attendees details footer)
+    ha_stub.run(manager.async_run(reason="manual"))
+    check(len(target.created) == 1)
+    target_event = target.events[0]
+
+    # Now edit description in target (Google Calendar)
+    # 1. Edit notes without changing tags: preserves label 2 and attendee 102, strips footer from note
+    target_event.description = conflicts.add_marker(
+        "Updated notes without tags\n\nTimeTree label: Bob\nTimeTree attendees: Bob",
+        "evt-update-1",
+    )
+    report = ha_stub.run(manager.async_run(reason="manual"))
+    check(report.ok, str(report.errors))
+    check(report.updated == 1, report.summary())
+    check(len(coordinator.updated) == 1)
+    _, uid1, p1 = coordinator.updated[-1]
+    check(uid1 == "evt-update-1")
+    check(p1["label_id"] == 2, f"expected label_id 2 preserved, got {p1.get('label_id')}")
+    check(p1["attendees"] == [102], f"expected attendee [102] preserved, got {p1.get('attendees')}")
+    check(p1["note"] == "Updated notes without tags", f"expected stripped note, got {p1.get('note')!r}")
+
+    # 2. Edit description with #Alice while old footer is still present: overrides label to 3 and attendee to [101]
+    target_event.description = conflicts.add_marker(
+        "Updated notes with tag #Alice\n\nTimeTree label: Bob\nTimeTree attendees: Bob",
+        "evt-update-1",
+    )
+    report2 = ha_stub.run(manager.async_run(reason="manual"))
+    check(report2.ok, str(report2.errors))
+    check(report2.updated == 1, report2.summary())
+    check(len(coordinator.updated) == 2)
+    _, uid2, p2 = coordinator.updated[-1]
+    check(uid2 == "evt-update-1")
+    check(p2["label_id"] == 3, f"expected label_id 3, got {p2.get('label_id')}")
+    check(p2["attendees"] == [101], f"expected attendee [101] only, got {p2.get('attendees')}")
+    check(p2["note"] == "Updated notes with tag #Alice", f"expected stripped note, got {p2.get('note')!r}")
 
 
 def test_all_modules_import():
@@ -1705,6 +1972,10 @@ TESTS = [
     test_calendar_entity_rrule_validation,
     test_options_from_entry,
     test_export_attendee_filter,
+    test_export_tag_filter,
+    test_export_combined_user_and_tag_filter,
+    test_export_import_unmanaged_description_hashtags,
+    test_export_update_existing_event_description_syncs_back,
     test_all_modules_import,
     test_transport_module_level_imports,
     test_create_transport_fallback_without_curl_cffi,
