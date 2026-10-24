@@ -21,7 +21,7 @@ from collections.abc import Mapping
 from enum import StrEnum
 
 from .const import MARKER_PREFIX, MARKER_SUFFIX
-from .models import TimeTreeEvent
+from .models import DETAIL_PREFIXES, TimeTreeEvent
 
 UTC = timezone.utc
 SEPARATOR = "\n\n"
@@ -91,6 +91,21 @@ def strip_marker(text: str | None) -> str:
     if not text:
         return ""
     return text.replace(export_marker(find_marker(text) or ""), "").strip()
+
+
+def strip_details(text: str | None) -> str:
+    """Remove auto-generated TimeTree detail footers and export markers from a description."""
+    if not text:
+        return ""
+    clean = strip_marker(text)
+    if not clean:
+        return ""
+    lines = [
+        line
+        for line in clean.splitlines()
+        if not line.strip().lower().startswith(DETAIL_PREFIXES)
+    ]
+    return "\n".join(lines).strip()
 
 
 @dataclass(slots=True)

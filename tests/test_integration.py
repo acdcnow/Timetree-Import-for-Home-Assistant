@@ -405,6 +405,31 @@ def test_markers():
     check(conflicts.add_marker("", "uuid-2") == conflicts.export_marker("uuid-2"))
     check(conflicts.find_marker(conflicts.add_marker(None, "u")) == "u")
 
+    # detail stripping (fixes #15)
+    check(conflicts.strip_details("Note") == "Note")
+    check(
+        conflicts.strip_details(
+            "Bring shin guards\n\nTimeTree label: Sports\nTimeTree attendees: Alice, Bob"
+        )
+        == "Bring shin guards"
+    )
+    check(
+        conflicts.strip_details(
+            "Bring shin guards\nTimeTree label: Sports"
+        )
+        == "Bring shin guards"
+    )
+    check(
+        conflicts.strip_details(
+            "Note\n\ntimetree label: work\ntimetree attendees: John"
+        )
+        == "Note"
+    )
+    with_marker_and_details = conflicts.add_marker("Note\n\nTimeTree label: Sports", "uuid-123")
+    check(conflicts.strip_details(with_marker_and_details) == "Note")
+    check(conflicts.strip_details("") == "")
+    check(conflicts.strip_details(None) == "")
+
 
 def state(summary="A", description="", start="2026-10-05T09:00:00+02:00", **extra):
     """Build an EventState."""
@@ -1485,6 +1510,97 @@ def test_calendar_entity_rrule_validation():
         pass
 
 
+def test_calendar_entity_update_prevents_detail_accumulation():
+    """Updating an event in HA does not accumulate generated detail footers (fixes #15)."""
+    import asyncio
+
+    last_update_payload = None
+    last_create_payload = None
+
+    class MockCoordinator:
+        def __init__(self):
+            self.options = make_options(description_details=True)
+
+        async def async_update_event(self, calendar_id, uid, payload):
+            nonlocal last_update_payload
+            last_update_payload = payload
+
+        async def async_create_event(self, calendar_id, payload):
+            nonlocal last_create_payload
+            last_create_payload = payload
+
+    class Entity(calendar_mod.TimeTreeCalendarEntity):
+        def __init__(self, current_event):
+            self.calendar_id = "cal-1"
+            self._current = current_event
+            self.coordinator = MockCoordinator()
+
+        @property
+        def calendar_data(self):
+            return {self._current.uuid: self._current}
+
+    ev = make_source_event(
+        uuid="event-1",
+        title="Soccer Practice",
+        note="Bring shin guards",
+        label_id=1,
+    )
+    ev.label_name = "Sports"
+    ev.attendee_names = ["Alice", "Bob"]
+
+    entity = Entity.__new__(Entity)
+    entity.calendar_id = "cal-1"
+    entity._current = ev
+    entity.coordinator = MockCoordinator()
+
+    # 1. HA presents the projected description
+    projected = models.describe_event(ev, include_details=True)
+    check("TimeTree label: Sports" in projected)
+    check("TimeTree attendees: Alice, Bob" in projected)
+
+    # 2. User edits start time in HA, description left untouched
+    update_data = {
+        "dtstart": datetime(2026, 10, 5, 10, 0, tzinfo=VIENNA),
+        "dtend": datetime(2026, 10, 5, 11, 0, tzinfo=VIENNA),
+        "description": projected,
+        "summary": "Soccer Practice",
+    }
+    asyncio.run(entity.async_update_event("event-1", update_data))
+    check(
+        last_update_payload["note"] == "Bring shin guards",
+        f"Expected original note preserved, got: {last_update_payload['note']}",
+    )
+
+    # 3. User edits description in HA but leaves footer lines in place
+    update_data["description"] = "Bring shin guards and water\n\nTimeTree label: Sports\nTimeTree attendees: Alice, Bob"
+    asyncio.run(entity.async_update_event("event-1", update_data))
+    check(
+        last_update_payload["note"] == "Bring shin guards and water",
+        f"Expected footers stripped, got: {last_update_payload['note']}",
+    )
+
+    # 4. User clears description completely in HA
+    update_data["description"] = ""
+    asyncio.run(entity.async_update_event("event-1", update_data))
+    check(
+        last_update_payload["note"] == "",
+        f"Expected empty note, got: {last_update_payload['note']}",
+    )
+
+    # 5. Event creation with detail footers also strips them
+    create_data = {
+        "dtstart": datetime(2026, 10, 5, 10, 0, tzinfo=VIENNA),
+        "dtend": datetime(2026, 10, 5, 11, 0, tzinfo=VIENNA),
+        "title": "New Match",
+        "description": "Meeting point\n\nTimeTree label: Sports\nTimeTree attendees: Alice",
+    }
+    asyncio.run(entity.async_create_event(**create_data))
+    check(
+        last_create_payload["note"] == "Meeting point",
+        f"Expected create footers stripped, got: {last_create_payload['note']}",
+    )
+
+
 # ---------------------------------------------------------------------------
 # options
 # ---------------------------------------------------------------------------
@@ -1703,6 +1819,7 @@ TESTS = [
     test_calendar_entity_builds_events,
     test_calendar_entity_rejects_occurrence_write,
     test_calendar_entity_rrule_validation,
+    test_calendar_entity_update_prevents_detail_accumulation,
     test_options_from_entry,
     test_export_attendee_filter,
     test_all_modules_import,

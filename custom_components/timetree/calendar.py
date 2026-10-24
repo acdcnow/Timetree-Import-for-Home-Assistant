@@ -25,7 +25,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import dt as dt_util
 
-from .conflicts import strip_marker
+from .conflicts import strip_details, strip_marker
 from .entity import TimeTreeCalendarEntityBase
 from .models import TimeTreeEvent, build_event_payload, describe_event
 from .options import CalendarOption
@@ -160,7 +160,7 @@ class TimeTreeCalendarEntity(CalendarEntity, TimeTreeCalendarEntityBase):
         all_day = not isinstance(dtstart, datetime)
         payload = build_event_payload(
             title=kwargs.get("summary") or kwargs.get("title") or "New event",
-            note=kwargs.get("description") or "",
+            note=strip_details(kwargs.get("description")),
             location=kwargs.get("location") or "",
             start=dtstart,
             end=dtend,
@@ -190,13 +190,25 @@ class TimeTreeCalendarEntity(CalendarEntity, TimeTreeCalendarEntityBase):
             current = data.get(uid)
         dtstart, dtend = _resolve_times(event)
         all_day = not isinstance(dtstart, datetime)
+
+        incoming_desc = event.get("description")
+        if incoming_desc is not None and current is not None:
+            projected = describe_event(
+                current,
+                include_details=self.coordinator.options.description_details,
+            )
+            if incoming_desc.strip() == (projected or "").strip():
+                resolved_note = current.note
+            else:
+                resolved_note = strip_details(incoming_desc)
+        elif incoming_desc is not None:
+            resolved_note = strip_details(incoming_desc)
+        else:
+            resolved_note = current.note if current else ""
+
         payload = build_event_payload(
             title=event.get("summary") or (current.title if current else "Event"),
-            note=strip_marker(
-                event.get("description")
-                if event.get("description") is not None
-                else (current.note if current else "")
-            ),
+            note=resolved_note,
             location=event.get("location") or (current.location if current else ""),
             start=dtstart,
             end=dtend,

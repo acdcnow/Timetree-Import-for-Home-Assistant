@@ -26,6 +26,14 @@ EVENT_TYPE_BIRTHDAY = 1
 CATEGORY_NORMAL = 1
 CATEGORY_MEMO = 2
 
+# Human-readable detail prefixes added to Home Assistant descriptions
+DETAIL_PREFIX_LABEL = "TimeTree label:"
+DETAIL_PREFIX_ATTENDEES = "TimeTree attendees:"
+DETAIL_PREFIXES: tuple[str, ...] = (
+    DETAIL_PREFIX_LABEL.lower(),
+    DETAIL_PREFIX_ATTENDEES.lower(),
+)
+
 
 def get_zone(tz_name: str | None) -> timezone | ZoneInfo:
     """Return a tzinfo for ``tz_name`` falling back to UTC.
@@ -328,9 +336,9 @@ class TimeTreeEvent:
         """Return human readable details used to enrich the description."""
         lines: list[str] = []
         if self.label_name:
-            lines.append(f"TimeTree label: {self.label_name}")
+            lines.append(f"{DETAIL_PREFIX_LABEL} {self.label_name}")
         if self.attendee_names:
-            lines.append(f"TimeTree attendees: {', '.join(self.attendee_names)}")
+            lines.append(f"{DETAIL_PREFIX_ATTENDEES} {', '.join(self.attendee_names)}")
         return lines
 
     # -- sync helpers ------------------------------------------------------
