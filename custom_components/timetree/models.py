@@ -134,6 +134,7 @@ class TimeTreeCalendar:
     alias_code: str | None = None
     users: dict[int, str] = field(default_factory=dict)
     labels: dict[int, TimeTreeLabel] = field(default_factory=dict)
+    virtual_users: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_api(cls, data: Mapping[str, Any]) -> TimeTreeCalendar:
@@ -152,6 +153,21 @@ class TimeTreeCalendar:
             alias_code=data.get("alias_code"),
             users=users,
         )
+
+
+def parse_virtual_users(data: Mapping[str, Any] | None) -> dict[str, str]:
+    """Map virtual member ids to names from a ``virtual_users`` response."""
+    users: dict[str, str] = {}
+    if not isinstance(data, Mapping):
+        return users
+    for item in data.get("calendar_virtual_users") or []:
+        if not isinstance(item, Mapping):
+            continue
+        virtual_id = item.get("id")
+        name = item.get("name")
+        if virtual_id is not None and name and str(name).strip():
+            users[str(virtual_id)] = str(name).strip()
+    return users
 
 
 @dataclass(slots=True)
@@ -186,6 +202,8 @@ class TimeTreeEvent:
     label_name: str | None = None
     label_color: str | None = None
     attendee_names: list[str] = field(default_factory=list)
+    virtual_attendee_names: list[str] = field(default_factory=list)
+    virtual_user_attendees: list[Any] = field(default_factory=list)
     comments: list[str] = field(default_factory=list)
 
     # -- lifecycle ---------------------------------------------------------
@@ -199,6 +217,17 @@ class TimeTreeEvent:
     ) -> TimeTreeEvent:
         """Create an event from a ``events/sync`` entry."""
         uuid = str(data.get("uuid") or data.get("id") or "")
+
+        # Virtual members (no TimeTree account) are stored as a list of ids in
+        # ``attachment.virtual_user_attendees``; names are resolved later
+        # against the calendar's ``virtual_users``.
+        attachment = data.get("attachment")
+        virtual_attendees_raw: list[Any] = []
+        if isinstance(attachment, Mapping):
+            raw = attachment.get("virtual_user_attendees")
+            if isinstance(raw, list):
+                virtual_attendees_raw = list(raw)
+
         event = cls(
             uuid=uuid,
             calendar_id=calendar_id,
@@ -228,6 +257,7 @@ class TimeTreeEvent:
             location_lat=data.get("location_lat"),
             location_lon=data.get("location_lon"),
             deleted=bool(data.get("deleted_at") or data.get("deleted")),
+            virtual_user_attendees=virtual_attendees_raw,
         )
         if calendar is not None:
             event.apply_calendar_metadata(calendar)
@@ -240,11 +270,21 @@ class TimeTreeEvent:
             if label is not None:
                 self.label_name = label.name
                 self.label_color = label.color
-        self.attendee_names = [
+        real_attendees = [
             calendar.users[user_id]
             for user_id in self.attendee_ids
             if user_id in calendar.users
         ]
+        self.virtual_attendee_names = [
+            calendar.virtual_users[str(virtual_id)]
+            for virtual_id in self.virtual_user_attendees
+            if str(virtual_id) in calendar.virtual_users
+        ]
+        combined: list[str] = []
+        for name in real_attendees + self.virtual_attendee_names:
+            if name and name not in combined:
+                combined.append(name)
+        self.attendee_names = combined
 
     def copy(self) -> TimeTreeEvent:
         """Return a copy of the event."""
@@ -422,6 +462,7 @@ def build_event_payload(
     category: int = CATEGORY_NORMAL,
     event_type: int | None = None,
     timezone: str | None = None,
+    virtual_user_attendees: Sequence[Any] | None = None,
 ) -> dict[str, Any]:
     """Build the payload the TimeTree web client sends for a write.
 
@@ -459,7 +500,7 @@ def build_event_payload(
         "attendees": list(attendees or []),
         "recurrences": list(recurrences or []),
         "alerts": list(alerts or []),
-        "attachment": {"virtual_user_attendees": []},
+        "attachment": {"virtual_user_attendees": list(virtual_user_attendees or [])},
         "category": category,
     }
     if event_type is not None:
