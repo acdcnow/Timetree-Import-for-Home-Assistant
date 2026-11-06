@@ -231,6 +231,120 @@ def test_models_payload_round_trip():
     )
 
 
+def test_models_virtual_attendees():
+    """Virtual attendee ids resolve to names via the calendar's virtual users (#17)."""
+    virtual_users = models.parse_virtual_users(
+        {
+            "calendar_virtual_users": [
+                {"id": "9001", "uuid": "u-1", "name": "Bob", "account_type": "child"},
+                {"id": "9002", "uuid": "u-2", "name": " Charlie "},
+                {"id": "9003", "name": ""},
+                "garbage",
+            ]
+        }
+    )
+    check(virtual_users == {"9001": "Bob", "9002": "Charlie"})
+    check(models.parse_virtual_users(None) == {})
+    check(models.parse_virtual_users({"calendar_virtual_users": None}) == {})
+
+    calendar = models.TimeTreeCalendar(
+        calendar_id="cal-1",
+        name="Family",
+        users={101: "Alice"},
+        virtual_users=virtual_users,
+    )
+
+    def parse(attendees, virtual):
+        return models.TimeTreeEvent.from_api(
+            {
+                "uuid": "e",
+                "title": "Dentist",
+                "start_at": 0,
+                "end_at": 0,
+                "attendees": attendees,
+                "attachment": {"virtual_user_attendees": virtual},
+            },
+            "cal-1",
+            calendar=calendar,
+        )
+
+    # 1. Real member only
+    ev_real = parse([101], [])
+    check(ev_real.attendee_names == ["Alice"])
+    check("TimeTree attendees: Alice" in models.describe_event(ev_real))
+
+    # 2. Virtual member only (ids as strings, as sent by the API)
+    ev_virtual = parse([], ["9001"])
+    check(ev_virtual.virtual_attendee_names == ["Bob"])
+    check(ev_virtual.attendee_names == ["Bob"])
+    check("TimeTree attendees: Bob" in models.describe_event(ev_virtual))
+
+    # 3. Real and virtual members combined, numeric ids tolerated
+    ev_both = parse([101], ["9001", 9002])
+    check(ev_both.attendee_names == ["Alice", "Bob", "Charlie"])
+    check("TimeTree attendees: Alice, Bob, Charlie" in models.describe_event(ev_both))
+
+    # 4. Unknown ids are skipped instead of leaking raw ids into the description
+    ev_unknown = parse([], ["424242"])
+    check(ev_unknown.attendee_names == [])
+    check("TimeTree attendees" not in models.describe_event(ev_unknown))
+    check(ev_unknown.virtual_user_attendees == ["424242"])
+
+    # 5. Without a calendar the raw ids are kept for write-back only
+    ev_nocal = models.TimeTreeEvent.from_api(
+        {
+            "uuid": "e5",
+            "title": "x",
+            "start_at": 0,
+            "end_at": 0,
+            "attachment": {"virtual_user_attendees": ["9001"]},
+        },
+        "cal-1",
+    )
+    check(ev_nocal.attendee_names == [])
+    check(ev_nocal.virtual_user_attendees == ["9001"])
+
+    # 6. build_event_payload preserves the raw ids for updates
+    payload = models.build_event_payload(
+        title="Dentist",
+        start=date(2026, 10, 5),
+        end=date(2026, 10, 6),
+        all_day=True,
+        virtual_user_attendees=ev_virtual.virtual_user_attendees,
+    )
+    check(payload["attachment"] == {"virtual_user_attendees": ["9001"]})
+
+
+def test_api_virtual_users_and_attendee_prep():
+    """Virtual users are fetched once per calendar; virtual-only events skip the creator."""
+    client = api_mod.TimeTreeApi.__new__(api_mod.TimeTreeApi)
+    client._calendar_virtual_users = {}
+    client._user_id = 7
+    calls = []
+
+    def fake_request(method, path, **kwargs):
+        calls.append(path)
+        return {"calendar_virtual_users": [{"id": "9001", "name": "Bob"}]}
+
+    client._request = fake_request
+    check(client._get_virtual_users("cal-1") == {"9001": "Bob"})
+    check(client._get_virtual_users("cal-1") == {"9001": "Bob"})
+    check(calls == ["/calendar/cal-1/virtual_users"])
+
+    def failing_request(method, path, **kwargs):
+        raise api_mod.TimeTreeApiError("boom")
+
+    client._request = failing_request
+    check(client._get_virtual_users("cal-2") == {})
+
+    virtual_only = client._prepare_attendees(
+        {"attendees": [], "attachment": {"virtual_user_attendees": ["9001"]}}
+    )
+    check(virtual_only["attendees"] == [])
+    nobody = client._prepare_attendees({"attendees": []})
+    check(nobody["attendees"] == [7])
+
+
 # ---------------------------------------------------------------------------
 # recurrence
 # ---------------------------------------------------------------------------
@@ -1670,6 +1784,8 @@ TESTS = [
     test_models_label_relationships,
     test_models_filter,
     test_models_payload_round_trip,
+    test_models_virtual_attendees,
+    test_api_virtual_users_and_attendee_prep,
     test_recurrence_expansion_with_count,
     test_recurrence_window_filter_in_place,
     test_recurrence_exdate,

@@ -211,6 +211,7 @@ class TimeTreeCalendarEntity(CalendarEntity, TimeTreeCalendarEntityBase):
             alerts=current.alerts if current else None,
             category=current.category if current else 1,
             timezone=_timezone_name(dtstart),
+            virtual_user_attendees=current.virtual_user_attendees if current else None,
         )
         try:
             await self.coordinator.async_update_event(self.calendar_id, uid, payload)

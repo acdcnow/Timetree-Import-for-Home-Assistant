@@ -59,6 +59,7 @@ from .models import (
     TimeTreeEvent,
     filter_events,
     parse_event_list,
+    parse_virtual_users,
     to_int,
 )
 
@@ -150,6 +151,7 @@ class TimeTreeApi:
         self._user_id: int | None = None
         self._lock = threading.Lock()
         self._calendar_labels: dict[str, dict[int, TimeTreeLabel]] = {}
+        self._calendar_virtual_users: dict[str, dict[str, str]] = {}
 
     @classmethod
     async def async_create(
@@ -356,6 +358,22 @@ class TimeTreeApi:
         self._calendar_labels[calendar_id] = labels
         return labels
 
+    def _get_virtual_users(self, calendar_id: str) -> dict[str, str]:
+        """Return the virtual members (id -> name) of a calendar (cached)."""
+        cached = self._calendar_virtual_users.get(calendar_id)
+        if cached is not None:
+            return cached
+        try:
+            data = self._request("GET", f"/calendar/{calendar_id}/virtual_users")
+        except TimeTreeApiError as err:
+            _LOGGER.debug(
+                "Could not load virtual users for %s: %s", calendar_id, err
+            )
+            return {}
+        virtual_users = parse_virtual_users(data)
+        self._calendar_virtual_users[calendar_id] = virtual_users
+        return virtual_users
+
     def _get_events_page(
         self, calendar_id: str, since: int | None = None
     ) -> Mapping[str, Any]:
@@ -493,7 +511,11 @@ class TimeTreeApi:
     def _prepare_attendees(self, payload: dict[str, Any]) -> dict[str, Any]:
         """TimeTree does not add the creator as attendee server side."""
         attendees = payload.get("attendees")
-        if not attendees:
+        attachment = payload.get("attachment")
+        has_virtual = isinstance(attachment, Mapping) and bool(
+            attachment.get("virtual_user_attendees")
+        )
+        if not attendees and not has_virtual:
             if self._user_id is None:
                 try:
                     self._user_id = self._get_user_id()
@@ -598,13 +620,17 @@ class TimeTreeApi:
         include_birthdays: bool = False,
     ) -> list[TimeTreeEvent]:
         """Fetch and parse all events of a calendar."""
-        raw_events, labels = await asyncio.gather(
+        raw_events, labels, virtual_users = await asyncio.gather(
             self._hass.async_add_executor_job(
                 self._get_events, calendar.calendar_id, since
             ),
             self._hass.async_add_executor_job(self._get_labels, calendar.calendar_id),
+            self._hass.async_add_executor_job(
+                self._get_virtual_users, calendar.calendar_id
+            ),
         )
         calendar.labels.update(labels)
+        calendar.virtual_users.update(virtual_users)
         events = parse_event_list(
             {"events": raw_events}, calendar.calendar_id, calendar=calendar
         )
